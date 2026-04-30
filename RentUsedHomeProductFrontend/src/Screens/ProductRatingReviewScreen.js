@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,24 +9,51 @@ import {
   SafeAreaView,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useNavigate, useParams } from "react-router";
-import { ArrowLeft, Star } from "lucide-react-native";
+import { ArrowLeft, Star, User } from "lucide-react-native";
+import axios from "axios";
+import { API_URL } from "../utils/api";
 
 export default function ProductRatingReviewScreen() {
   const navigate = useNavigate();
-  const { id } = useParams();
-  const [rating, setRating] = useState(0);
+  const { id } = useParams(); // This is the Rental ID
+  
+  const [productRating, setProductRating] = useState(0);
+  const [ownerRating, setOwnerRating] = useState(0);
   const [review, setReview] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rentalData, setRentalData] = useState(null);
 
-  const productInfo = {
-    name: "Gaming Laptop",
-    image: "https://images.unsplash.com/photo-1640955014216-75201056c829?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400&h=300",
-    ownerName: "Ahmed Khan",
+  useEffect(() => {
+    fetchRentalDetails();
+  }, [id]);
+
+  const fetchRentalDetails = async () => {
+    try {
+      // Assuming there's a GET /api/rental/{id} endpoint or similar
+      // If not, we might need to find it in the list.
+      const response = await axios.get(`${API_URL}/rental/${id}`);
+      setRentalData(response.data);
+    } catch (error) {
+      console.error("Failed to fetch rental details", error);
+      // Fallback dummy data if fetch fails
+      setRentalData({
+        product: { 
+          title: "Product", 
+          primaryImage: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80" 
+        },
+        owner: { username: "Owner" }
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const getRatingLabel = () => {
-    switch (rating) {
+  const getRatingLabel = (val) => {
+    switch (val) {
       case 1: return { text: "Poor", color: "#EF4444" };
       case 2: return { text: "Fair", color: "#F97316" };
       case 3: return { text: "Good", color: "#EAB308" };
@@ -36,17 +63,42 @@ export default function ProductRatingReviewScreen() {
     }
   };
 
-  const handleSubmit = () => {
-    if (rating === 0) {
-      Alert.alert("Required", "Please select a rating before submitting.");
+  const handleSubmit = async () => {
+    if (productRating === 0 || ownerRating === 0) {
+      Alert.alert("Required", "Please provide ratings for both product and owner.");
       return;
     }
-    Alert.alert("Success", "Thank you for your feedback!", [
-      { text: "OK", onPress: () => navigate("/return-status/" + id) }
-    ]);
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        productRating: productRating,
+        productReview: review.trim(),
+        ownerRating: ownerRating
+      };
+
+      console.log("Submitting review for rental:", id, payload);
+      await axios.put(`${API_URL}/rental/rate-product/${id}`, payload);
+
+      Alert.alert("✅ Success", "Thank you for your feedback!", [
+        { text: "OK", onPress: () => navigate("/return-status/" + id) }
+      ]);
+    } catch (error) {
+      console.error("Failed to submit review", error);
+      const msg = error.response?.data?.message || "Something went wrong while submitting your review.";
+      Alert.alert("❌ Error", msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const ratingLabel = getRatingLabel();
+  if (isLoading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#9333EA" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -61,33 +113,51 @@ export default function ProductRatingReviewScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Product Info Card */}
         <View style={styles.card}>
-          <Image source={{ uri: productInfo.image }} style={styles.productImage} />
-          <Text style={styles.productName}>{productInfo.name}</Text>
-          <Text style={styles.ownerText}>Rented from {productInfo.ownerName}</Text>
+          <Image 
+            source={{ uri: rentalData?.product?.primaryImage || "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80" }} 
+            style={styles.productImage} 
+          />
+          <Text style={styles.productName}>{rentalData?.product?.title}</Text>
+          <Text style={styles.ownerText}>Rented from {rentalData?.owner?.username}</Text>
         </View>
 
-        {/* Rating Section */}
+        {/* Product Rating Section */}
         <View style={styles.card}>
-          <Text style={styles.questionText}>How was your rental experience?</Text>
-          
+          <Text style={styles.questionText}>How was the Product?</Text>
           <View style={styles.starsRow}>
             {[1, 2, 3, 4, 5].map((star) => (
-              <TouchableOpacity
-                key={star}
-                onPress={() => setRating(star)}
-              >
+              <TouchableOpacity key={star} onPress={() => setProductRating(star)}>
                 <Star
-                  size={48}
-                  color={star <= rating ? "#FBBF24" : "#E5E7EB"}
-                  fill={star <= rating ? "#FBBF24" : "transparent"}
+                  size={40}
+                  color={star <= productRating ? "#FBBF24" : "#E5E7EB"}
+                  fill={star <= productRating ? "#FBBF24" : "transparent"}
                   style={{ marginHorizontal: 4 }}
                 />
               </TouchableOpacity>
             ))}
           </View>
+          <Text style={[styles.ratingLabel, { color: getRatingLabel(productRating).color }]}>
+            {getRatingLabel(productRating).text}
+          </Text>
+        </View>
 
-          <Text style={[styles.ratingLabel, { color: ratingLabel.color }]}>
-            {ratingLabel.text}
+        {/* Owner Rating Section */}
+        <View style={styles.card}>
+          <Text style={styles.questionText}>How was the Owner's behavior?</Text>
+          <View style={styles.starsRow}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <TouchableOpacity key={star} onPress={() => setOwnerRating(star)}>
+                <Star
+                  size={40}
+                  color={star <= ownerRating ? "#9333EA" : "#E5E7EB"}
+                  fill={star <= ownerRating ? "#9333EA" : "transparent"}
+                  style={{ marginHorizontal: 4 }}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={[styles.ratingLabel, { color: getRatingLabel(ownerRating).color }]}>
+            {getRatingLabel(ownerRating).text}
           </Text>
         </View>
 
@@ -103,28 +173,21 @@ export default function ProductRatingReviewScreen() {
             numberOfLines={6}
             placeholderTextColor="#9CA3AF"
           />
-          <Text style={styles.hintText}>
-            Your review helps other users make better rental decisions
-          </Text>
-        </View>
-
-        {/* Tips Box */}
-        <View style={styles.tipsBox}>
-          <Text style={styles.tipsTitle}>Rating Tips:</Text>
-          <Text style={styles.tipItem}>• Rate the product condition and quality</Text>
-          <Text style={styles.tipItem}>• Consider the owner's communication and service</Text>
-          <Text style={styles.tipItem}>• Be honest and fair in your review</Text>
         </View>
       </ScrollView>
 
       {/* Footer Submit Button */}
       <View style={styles.footer}>
         <TouchableOpacity 
-          style={[styles.submitBtn, rating === 0 && styles.submitBtnDisabled]}
+          style={[styles.submitBtn, (productRating === 0 || ownerRating === 0 || isSubmitting) && styles.submitBtnDisabled]}
           onPress={handleSubmit}
-          disabled={rating === 0}
+          disabled={productRating === 0 || ownerRating === 0 || isSubmitting}
         >
-          <Text style={styles.submitBtnText}>Submit Rating & Review</Text>
+          {isSubmitting ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.submitBtnText}>Submit Rating & Review</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -134,6 +197,12 @@ export default function ProductRatingReviewScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#F9FAFB",
+  },
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: "#F9FAFB",
   },
   header: {
@@ -161,13 +230,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
-    padding: 24,
-    marginBottom: 20,
+    padding: 20,
+    marginBottom: 16,
     alignItems: "center",
     elevation: 2,
     shadowColor: "#000",
@@ -176,35 +245,35 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
   },
   productImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 20,
-    marginBottom: 16,
+    width: 100,
+    height: 100,
+    borderRadius: 16,
+    marginBottom: 12,
   },
   productName: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
     color: "#111827",
     marginBottom: 4,
   },
   ownerText: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#6B7280",
   },
   questionText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "bold",
-    color: "#111827",
-    marginBottom: 24,
+    color: "#374151",
+    marginBottom: 16,
     textAlign: "center",
   },
   starsRow: {
     flexDirection: "row",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: 12,
   },
   ratingLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "bold",
     textAlign: "center",
   },
@@ -222,36 +291,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
     padding: 16,
-    height: 150,
+    height: 120,
     textAlignVertical: "top",
-    fontSize: 15,
-    color: "#111827",
-  },
-  hintText: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    marginTop: 8,
-    alignSelf: "flex-start",
-  },
-  tipsBox: {
-    backgroundColor: "#F5F3FF",
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#DDD6FE",
-    marginBottom: 20,
-  },
-  tipsTitle: {
     fontSize: 14,
-    fontWeight: "bold",
-    color: "#4C1D95",
-    marginBottom: 8,
-  },
-  tipItem: {
-    fontSize: 12,
-    color: "#5B21B6",
-    lineHeight: 18,
-    marginBottom: 2,
+    color: "#111827",
   },
   footer: {
     position: "absolute",
@@ -265,15 +308,11 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     backgroundColor: "#9333EA",
-    height: 60,
-    borderRadius: 20,
+    height: 56,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#9333EA",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
+    elevation: 4,
   },
   submitBtnDisabled: {
     backgroundColor: "#E5E7EB",

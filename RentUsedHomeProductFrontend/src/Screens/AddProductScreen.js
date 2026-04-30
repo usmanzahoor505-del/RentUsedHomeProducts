@@ -198,7 +198,7 @@ export default function AddProductScreen() {
 
     // attributes_list = "Brand,Processor,RAM,Storage,Screen Size" — split karke array banao
     const attrNames = (attributesList || "").split(",").map((a, index) => ({
-      attributeId: index,
+      attributeId: subCatId, // Store the Sub-Category ID here!
       name: a.trim(),
       type: "dropdown",
     }));
@@ -206,6 +206,7 @@ export default function AddProductScreen() {
   };
 
   const handleImageUpload = async () => {
+    console.log("=== Image Upload Triggered ===");
     if (images.length >= 5) {
       Alert.alert("Limit Reached", "Maximum 5 images allowed.");
       return;
@@ -214,11 +215,12 @@ export default function AddProductScreen() {
     // Android permission check
     if (Platform.OS === "android") {
       try {
-        // Android 13+ needs READ_MEDIA_IMAGES, older needs READ_EXTERNAL_STORAGE
         const permission = Platform.Version >= 33
           ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
           : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
 
+        console.log(`Checking permission for: ${permission} (Version: ${Platform.Version})`);
+        
         const granted = await PermissionsAndroid.request(permission, {
           title: "Gallery Permission",
           message: "App needs access to your gallery to upload product images.",
@@ -226,6 +228,8 @@ export default function AddProductScreen() {
           buttonNegative: "Cancel",
           buttonPositive: "Allow",
         });
+
+        console.log("Permission Status:", granted);
 
         if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
           Alert.alert("Permission Denied", "Please allow gallery access in settings to upload images.");
@@ -242,13 +246,20 @@ export default function AddProductScreen() {
       quality: 0.8,
     };
 
+    console.log("Launching Image Library with options:", options);
+
     launchImageLibrary(options, (response) => {
-      if (response.didCancel) return;
+      if (response.didCancel) {
+        console.log("User cancelled image picker");
+        return;
+      }
       if (response.errorCode) {
+        console.error("ImagePicker Error:", response.errorCode, response.errorMessage);
         Alert.alert("Error", `Image picker error: ${response.errorMessage}`);
         return;
       }
       if (response.assets) {
+        console.log("Images selected:", response.assets.length);
         const newImages = response.assets.map((asset) => asset.uri);
         setImages([...images, ...newImages]);
       }
@@ -285,12 +296,13 @@ export default function AddProductScreen() {
       // Build attributes array — each attr has real DB attributeId
       const attributesPayload = Object.entries(selectedAttributes)
         .filter(([_, val]) => val && val.trim() !== "")
-        .map(([attrIndex, val]) => {
-          const attr = categoryAttributes[parseInt(attrIndex)];
+        .map(([attrId, val]) => {
+          // attrId is the attributeId from the map, which is the subCategoryId
+          const attr = categoryAttributes.find(a => a.attributeId.toString() === attrId.toString() || a.name === attrId);
           return {
-            attributeId: attr ? attr.attributeId : 0,  // DB attribute_id from Category_Attributes
-            attributeName: attr ? attr.name : "",        // e.g. "Brand"
-            value: val                                   // e.g. "Apple"
+            attributeId: selectedSubCategoryId,  // Matches backend DTO: a.AttributeId
+            attributeName: attr ? attr.name : attrId,     // e.g. "Brand"
+            value: val                                    // e.g. "Apple"
           };
         });
 
