@@ -198,7 +198,7 @@ export default function AddProductScreen() {
 
     // attributes_list = "Brand,Processor,RAM,Storage,Screen Size" — split karke array banao
     const attrNames = (attributesList || "").split(",").map((a, index) => ({
-      attributeId: subCatId, // Store the Sub-Category ID here!
+      attributeId: index, // Use index for frontend uniqueness
       name: a.trim(),
       type: "dropdown",
     }));
@@ -300,7 +300,7 @@ export default function AddProductScreen() {
           // attrId is the attributeId from the map, which is the subCategoryId
           const attr = categoryAttributes.find(a => a.attributeId.toString() === attrId.toString() || a.name === attrId);
           return {
-            attributeId: selectedSubCategoryId,  // Matches backend DTO: a.AttributeId
+            attributeId: selectedSubCategoryId,  // Matches backend DTO: a.AttributeId (Sub-Category ID)
             attributeName: attr ? attr.name : attrId,     // e.g. "Brand"
             value: val                                    // e.g. "Apple"
           };
@@ -328,11 +328,23 @@ export default function AddProductScreen() {
       // Step 2: Upload images if any
       if (images.length > 0 && productId) {
         const formData = new FormData();
-        images.forEach((uri) => {
-          const fileName = uri.split("/").pop();
+        images.forEach((uri, index) => {
+          let fileName = uri.split("/").pop();
+          // Agar filename mein extension nahi hai (Android content URIs), toh .jpg add kardo
+          if (!fileName.includes(".")) {
+            fileName = `image_${index}_${Date.now()}.jpg`;
+          }
+          
           const match = /\.(\w+)$/.exec(fileName);
           const type = match ? `image/${match[1]}` : "image/jpeg";
-          formData.append("images", { uri, name: fileName, type });
+          
+          console.log(`Uploading Image ${index}: name=${fileName}, type=${type}`);
+          
+          formData.append("images", {
+            uri: Platform.OS === "android" ? uri : uri.replace("file://", ""),
+            name: fileName,
+            type: type
+          });
         });
 
         console.log("=== Uploading Images for Product ID:", productId);
