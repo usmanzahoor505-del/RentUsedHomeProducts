@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useNavigate, useParams } from "react-router";
-import { ArrowLeft, Star, MapPin, Calendar, Package } from "lucide-react-native";
+import { ArrowLeft, Star, MapPin, Calendar, Package, User } from "lucide-react-native";
 
 import axios from "axios";
 import { API_URL } from "../utils/api";
