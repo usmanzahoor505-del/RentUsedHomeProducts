@@ -29,13 +29,13 @@ import {
 } from "lucide-react-native";
 import axios from "axios";
 import { API_URL } from "../utils/api";
-import { UserContext } from "../context/UserContext";
+import { useUser } from "../context/UserContext";
 
 const { width } = Dimensions.get("window");
 
 export default function MyAddsScreen() {
   const navigate = useNavigate();
-  const { user } = React.useContext(UserContext);
+  const { userId, userName } = useUser();
   const [activeTab, setActiveTab] = useState("listings");
   const [isLoading, setIsLoading] = useState(true);
   const [listings, setListings] = useState([]);
@@ -44,16 +44,16 @@ export default function MyAddsScreen() {
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
-    if (user?.userId) {
+    if (userId) {
       fetchData();
     }
-  }, [user, activeTab]);
+  }, [userId, activeTab]);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
       if (activeTab === "listings") {
-        const res = await axios.get(`${API_URL}/products/byuser/${user.userId}`);
+        const res = await axios.get(`${API_URL}/products/byuser/${userId}`);
         const mappedListings = (res.data || []).map(item => ({
           id: item.productId,
           name: item.title || "Untitled",
@@ -66,7 +66,7 @@ export default function MyAddsScreen() {
         }));
         setListings(mappedListings);
       } else {
-        const res = await axios.get(`${API_URL}/rental/byowner/${user.userId}`);
+        const res = await axios.get(`${API_URL}/rental/byowner/${userId}`);
         const mappedRentals = (res.data || []).map(item => {
           const start = item.startDate ? new Date(item.startDate) : new Date();
           const end = item.endDate ? new Date(item.endDate) : new Date();
