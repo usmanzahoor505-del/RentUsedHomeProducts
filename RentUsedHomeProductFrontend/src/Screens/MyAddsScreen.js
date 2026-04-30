@@ -10,6 +10,7 @@ import {
   FlatList,
   ActivityIndicator,
   Dimensions,
+  Alert,
 } from "react-native";
 import { useNavigate } from "react-router";
 import {
@@ -32,48 +33,6 @@ import { UserContext } from "../context/UserContext";
 
 const { width } = Dimensions.get("window");
 
-const bookingRequests = [
-  {
-    id: 1,
-    productName: "Gaming Laptop",
-    productImage: "https://images.unsplash.com/photo-1640955014216-75201056c829?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400&h=300",
-    productRating: 4.8,
-    renterName: "Hassan Ali",
-    renterAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-    startDate: "Feb 20, 2026",
-    numberOfDays: 5,
-    totalAmount: 15000,
-    status: "pending",
-  },
-  {
-    id: 2,
-    productName: "Power Drill Set",
-    productImage: "https://images.unsplash.com/photo-1770763233593-74dfd0da7bf0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400&h=300",
-    productRating: 4.6,
-    renterName: "Fatima Malik",
-    renterAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
-    startDate: "Feb 18, 2026",
-    numberOfDays: 2,
-    totalAmount: 1800,
-    status: "approved",
-  },
-];
-
-const returnRequests = [
-  {
-    id: 101,
-    productName: "L-Shaped Sofa",
-    productImage: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400&h=300",
-    productRating: 4.5,
-    renterName: "Ahmed Khan",
-    renterAvatar: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100&h=100&fit=crop",
-    startDate: "Feb 10, 2026",
-    numberOfDays: 3,
-    totalAmount: 4500,
-    status: "awaiting_return",
-  },
-];
-
 export default function MyAddsScreen() {
   const navigate = useNavigate();
   const { user } = React.useContext(UserContext);
@@ -85,24 +44,22 @@ export default function MyAddsScreen() {
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
-    if (user && user.userId) {
+    if (user?.userId) {
       fetchData();
-    } else {
-      setIsLoading(false);
     }
-  }, [activeTab, user]);
+  }, [user, activeTab]);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
       if (activeTab === "listings") {
         const res = await axios.get(`${API_URL}/products/byuser/${user.userId}`);
-        const mappedListings = res.data.map(item => ({
+        const mappedListings = (res.data || []).map(item => ({
           id: item.productId,
-          name: item.title,
+          name: item.title || "Untitled",
           image: item.images && item.images.length > 0 ? item.images[0].imageUrl : "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80",
-          price: item.pricePerDay,
-          status: item.status, 
+          price: item.pricePerDay || 0,
+          status: item.status || "Available", 
           rating: item.avgRating || 0,
           views: item.views || 0,
           messages: item.messages || 0
@@ -110,23 +67,23 @@ export default function MyAddsScreen() {
         setListings(mappedListings);
       } else {
         const res = await axios.get(`${API_URL}/rental/byowner/${user.userId}`);
-        const mappedRentals = res.data.map(item => {
-          const start = new Date(item.startDate);
-          const end = new Date(item.endDate);
+        const mappedRentals = (res.data || []).map(item => {
+          const start = item.startDate ? new Date(item.startDate) : new Date();
+          const end = item.endDate ? new Date(item.endDate) : new Date();
           const diffDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)) || 1;
           
           return {
             id: item.rentalId,
-            productName: item.product.title,
-            productImage: item.product.primaryImage || "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80",
-            renterId: item.renter.userId,
-            renterName: item.renter.username,
+            productName: item.product?.title || "Unknown Product",
+            productImage: item.product?.primaryImage || "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80",
+            renterId: item.renter?.userId,
+            renterName: item.renter?.username || "Guest",
             renterAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop", 
             startDate: start.toLocaleDateString(),
             endDate: end.toLocaleDateString(),
             numberOfDays: diffDays,
             totalAmount: item.totalAmount || 0,
-            status: item.status,
+            status: item.status || "Unknown",
             rating: item.renterRating || 0
           };
         });
@@ -143,155 +100,113 @@ export default function MyAddsScreen() {
   };
 
   const renderListing = ({ item }) => (
-    <View style={styles.card}>
-      <View style={styles.listingRow}>
-        <Image source={{ uri: item.image }} style={styles.listingImg} />
-        <View style={styles.listingContent}>
-          <View style={styles.listingHeader}>
-            <View>
-              <Text style={styles.listingName}>{item.name}</Text>
-              <Text style={styles.listingPrice}>Rs. {item.price.toLocaleString()}/day</Text>
-            </View>
-            <View style={[
-              styles.statusBadge, 
-              { backgroundColor: item.status === "active" || item.status === "Active" ? "#DCFCE7" : "#FFEDD5" }
-            ]}>
-              <Text style={[
-                styles.statusText, 
-                { color: item.status === "active" || item.status === "Active" ? "#166534" : "#9A3412" }
-              ]}>
-                {item.status.toUpperCase()}
+    <TouchableOpacity 
+      style={styles.card} 
+      onPress={() => navigate("/product/" + item.id)}
+    >
+      <View style={styles.cardContent}>
+        <Image source={{ uri: item.image }} style={styles.productImage} />
+        <View style={styles.productInfo}>
+          <View style={styles.titleRow}>
+            <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: item.status === "Available" ? "#DCFCE7" : "#FEE2E2" }]}>
+              <Text style={[styles.statusText, { color: item.status === "Available" ? "#166534" : "#991B1B" }]}>
+                {item.status}
               </Text>
             </View>
           </View>
           
+          <Text style={styles.productPrice}>Rs. {item.price.toLocaleString()}<Text style={styles.priceUnit}>/day</Text></Text>
+          
           <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Eye size={12} color="#9CA3AF" style={{ marginRight: 4 }} />
-              <Text style={styles.statText}>{item.views}</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Star size={12} color="#FBBF24" fill="#FBBF24" style={{ marginRight: 4 }} />
+            <View style={styles.stat}>
+              <Star size={12} color="#FBBF24" fill="#FBBF24" />
               <Text style={styles.statText}>{item.rating}</Text>
             </View>
-            <View style={styles.statItem}>
-              <MessageCircle size={12} color="#9CA3AF" style={{ marginRight: 4 }} />
+            <View style={styles.stat}>
+              <Eye size={12} color="#6B7280" />
+              <Text style={styles.statText}>{item.views}</Text>
+            </View>
+            <View style={styles.stat}>
+              <MessageCircle size={12} color="#6B7280" />
               <Text style={styles.statText}>{item.messages}</Text>
             </View>
           </View>
-
-          <TouchableOpacity style={styles.editBtn}>
-            <Edit size={14} color="#2563EB" style={{ marginRight: 6 }} />
-            <Text style={styles.editBtnText}>Edit Listing</Text>
-          </TouchableOpacity>
         </View>
       </View>
-    </View>
+      
+      <View style={styles.cardFooter}>
+        <TouchableOpacity style={styles.footerAction}>
+          <Edit size={16} color="#4B5563" />
+          <Text style={styles.footerActionText}>Edit</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.footerAction} onPress={() => navigate("/product/" + item.id)}>
+          <Text style={styles.footerActionTextPrimary}>View Details</Text>
+          <ChevronRight size={16} color="#9333EA" />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
   );
 
   const renderRequest = ({ item }) => (
     <View style={styles.card}>
-      <View style={styles.requestProductRow}>
-        <Image source={{ uri: item.productImage }} style={styles.reqProductImg} />
-        <View style={styles.statusFloat}>
-          <Text style={styles.statusFloatText}>{item.status.toUpperCase()}</Text>
+      <View style={styles.renterHeader}>
+        <View style={styles.renterAvatarBox}>
+          <User size={20} color="#6B7280" />
+        </View>
+        <View>
+          <Text style={styles.renterLabel}>New Request From</Text>
+          <Text style={styles.renterName}>{item.renterName}</Text>
         </View>
       </View>
-      <div className="p-5">
-        <Text style={styles.reqTitle}>{item.productName}</Text>
-        <View style={styles.reqRatingRow}>
-          <Star size={14} color="#FBBF24" fill="#FBBF24" />
-          <Text style={styles.reqRatingText}>{item.rating}</Text>
+      
+      <View style={styles.reqDetailsBox}>
+        <View style={styles.reqDetailRow}>
+          <Text style={styles.reqDetailLabel}>Product</Text>
+          <Text style={styles.reqDetailValue}>{item.productName}</Text>
         </View>
-        
-        <TouchableOpacity 
-          style={styles.renterRow}
-          onPress={() => navigate("/renter-profile/" + item.renterId)}
-        >
-          <View style={styles.renterAvatarBox}>
-            <User size={18} color="#9CA3AF" />
-          </View>
-          <View>
-            <Text style={styles.renterLabel}>Requested by</Text>
-            <Text style={styles.renterName}>{item.renterName}</Text>
-          </View>
+        <View style={styles.reqDetailRow}>
+          <Text style={styles.reqDetailLabel}>Duration</Text>
+          <Text style={styles.reqDetailValue}>{item.numberOfDays} Days</Text>
+        </View>
+        <View style={styles.reqDivider} />
+        <View style={styles.reqDetailRow}>
+          <Text style={styles.totalLabel}>Total Revenue</Text>
+          <Text style={styles.totalValue}>Rs. {item.totalAmount.toLocaleString()}</Text>
+        </View>
+      </View>
+      
+      <View style={styles.actionBtnRow}>
+        <TouchableOpacity style={styles.declineBtn}>
+          <XCircle size={18} color="#EF4444" style={{ marginRight: 6 }} />
+          <Text style={styles.declineBtnText}>Decline</Text>
         </TouchableOpacity>
-
-        <View style={styles.reqDetailsBox}>
-          <View style={styles.reqDetailRow}>
-            <Text style={styles.reqDetailLabel}>Start Date:</Text>
-            <Text style={styles.reqDetailValue}>{item.startDate}</Text>
-          </View>
-          <View style={styles.reqDetailRow}>
-            <Text style={styles.reqDetailLabel}>Duration:</Text>
-            <Text style={styles.reqDetailValue}>{item.numberOfDays} days</Text>
-          </View>
-          <View style={styles.reqDivider} />
-          <View style={styles.reqDetailRow}>
-            <Text style={styles.totalLabel}>Total Amount:</Text>
-            <Text style={styles.totalValue}>Rs. {item.totalAmount.toLocaleString()}</Text>
-          </View>
-        </View>
-
-        {item.status.toLowerCase() === "pending" && (
-          <View style={styles.actionBtnRow}>
-            <TouchableOpacity style={styles.approveBtn}>
-              <CheckCircle size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.approveBtnText}>Approve</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.declineBtn}>
-              <XCircle size={18} color="#4B5563" style={{ marginRight: 8 }} />
-              <Text style={styles.declineBtnText}>Decline</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </div>
+        <TouchableOpacity style={styles.approveBtn}>
+          <CheckCircle size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.approveBtnText}>Approve</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   const renderReturnRequest = ({ item }) => (
     <View style={styles.card}>
-      <View style={styles.requestProductRow}>
-        <Image source={{ uri: item.productImage }} style={styles.reqProductImg} />
-        <View style={[styles.statusFloat, { backgroundColor: "#FBBF24" }]}>
-          <Text style={styles.statusFloatText}>RETURN PENDING</Text>
+      <View style={styles.renterHeader}>
+        <View style={styles.renterAvatarBox}>
+          <RotateCcw size={20} color="#7C3AED" />
+        </View>
+        <View>
+          <Text style={styles.renterLabel}>Return Pending</Text>
+          <Text style={styles.historyName}>{item.productName}</Text>
         </View>
       </View>
-      <View style={styles.reqContent}>
-        <Text style={styles.reqTitle}>{item.productName}</Text>
-        
-        <TouchableOpacity 
-          style={styles.renterRow}
-          onPress={() => navigate("/renter-profile/" + item.renterId)}
-        >
-          <View style={styles.renterAvatarBox}>
-            <User size={18} color="#9CA3AF" />
-          </View>
-          <View>
-            <Text style={styles.renterLabel}>Being returned by</Text>
-            <Text style={styles.renterName}>{item.renterName}</Text>
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.reqDetailsBox}>
-          <View style={styles.reqDetailRow}>
-            <Text style={styles.reqDetailLabel}>Total Usage:</Text>
-            <Text style={styles.reqDetailValue}>{item.numberOfDays} days</Text>
-          </View>
-          <View style={styles.reqDetailRow}>
-            <Text style={styles.reqDetailLabel}>Amount:</Text>
-            <Text style={styles.reqDetailValue}>Rs. {item.totalAmount.toLocaleString()}</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity 
-          style={styles.approveReturnBtn}
-          onPress={() => navigate("/owner-confirm-return/" + item.id)}
-        >
-          <RotateCcw size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.approveBtnText}>Inspect & Approve Return</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity 
+        style={styles.approveReturnBtn}
+        onPress={() => navigate("/owner-confirm-return/" + item.id)}
+      >
+        <CheckCircle size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+        <Text style={styles.approveBtnText}>Confirm Return Received</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -310,7 +225,7 @@ export default function MyAddsScreen() {
             styles.statusText, 
             { color: item.status === "Completed" ? "#166534" : "#991B1B" }
           ]}>
-            {item.status.toUpperCase()}
+            {(item.status || "").toUpperCase()}
           </Text>
         </View>
       </View>
@@ -344,6 +259,7 @@ export default function MyAddsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigate(-1)}>
@@ -351,32 +267,27 @@ export default function MyAddsScreen() {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Dashboard</Text>
         </View>
-
-        <View style={styles.tabsRow}>
-          <TouchableOpacity
+        
+        {/* Tabs */}
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity 
             onPress={() => setActiveTab("listings")}
             style={[styles.tab, activeTab === "listings" && styles.tabActive]}
           >
-            <Text style={[styles.tabText, activeTab === "listings" && styles.tabTextActive]}>My Listings</Text>
+            <Text style={[styles.tabText, activeTab === "listings" && styles.tabTextActive]}>Listings</Text>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity 
             onPress={() => setActiveTab("requests")}
             style={[styles.tab, activeTab === "requests" && styles.tabActive]}
           >
             <Text style={[styles.tabText, activeTab === "requests" && styles.tabTextActive]}>Requests</Text>
-            {(requests.length > 0) && (
+            {requests.length > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{requests.length}</Text>
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setActiveTab("history")}
-            style={[styles.tab, activeTab === "history" && styles.tabActive]}
-          >
-            <Text style={[styles.tabText, activeTab === "history" && styles.tabTextActive]}>History</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity 
             onPress={() => setActiveTab("returns")}
             style={[styles.tab, activeTab === "returns" && styles.tabActive]}
           >
@@ -386,6 +297,12 @@ export default function MyAddsScreen() {
                 <Text style={styles.badgeText}>{returns.length}</Text>
               </View>
             )}
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={() => setActiveTab("history")}
+            style={[styles.tab, activeTab === "history" && styles.tabActive]}
+          >
+            <Text style={[styles.tabText, activeTab === "history" && styles.tabTextActive]}>History</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -408,7 +325,7 @@ export default function MyAddsScreen() {
             activeTab === "returns" ? renderReturnRequest :
             renderHistory
           }
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item, index) => item?.id?.toString() || index.toString()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
@@ -453,42 +370,38 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#111827",
   },
-  tabsRow: {
+  tabsContainer: {
     flexDirection: "row",
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-    gap: 10,
+    paddingHorizontal: 10,
   },
   tab: {
-    flex: 1,
-    height: 48,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 4,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
     flexDirection: "row",
+    alignItems: "center",
   },
   tabActive: {
-    backgroundColor: "#9333EA",
+    borderBottomColor: "#9333EA",
   },
   tabText: {
-    fontSize: 13,
-    fontWeight: "bold",
-    color: "#4B5563",
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#6B7280",
   },
   tabTextActive: {
-    color: "#FFFFFF",
+    color: "#9333EA",
   },
   badge: {
-    position: "absolute",
-    top: -5,
-    right: -5,
-    width: 20,
-    height: 20,
     backgroundColor: "#EF4444",
-    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     justifyContent: "center",
     alignItems: "center",
+    marginLeft: 6,
   },
   badgeText: {
     color: "#FFFFFF",
@@ -501,133 +414,110 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   listContent: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: 16,
   },
   card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 24,
+    borderRadius: 20,
+    padding: 16,
     marginBottom: 16,
-    overflow: "hidden",
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 5,
+    shadowRadius: 10,
   },
-  listingRow: {
+  cardContent: {
     flexDirection: "row",
   },
-  listingImg: {
-    width: 120,
-    height: 140,
+  productImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 16,
   },
-  listingContent: {
+  productInfo: {
     flex: 1,
-    padding: 16,
+    marginLeft: 16,
   },
-  listingHeader: {
+  titleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
   },
-  listingName: {
+  productName: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#111827",
-  },
-  listingPrice: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#2563EB",
-    marginTop: 2,
+    flex: 1,
+    marginRight: 8,
   },
   statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 8,
   },
   statusText: {
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: "bold",
+  },
+  productPrice: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#9333EA",
+    marginTop: 4,
+  },
+  priceUnit: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "normal",
   },
   statsRow: {
     flexDirection: "row",
-    gap: 16,
-    marginBottom: 16,
+    marginTop: 12,
+    gap: 12,
   },
-  statItem: {
+  stat: {
     flexDirection: "row",
     alignItems: "center",
   },
   statText: {
     fontSize: 12,
     color: "#6B7280",
-  },
-  editBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  editBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#2563EB",
-  },
-  requestProductRow: {
-    position: "relative",
-    width: "100%",
-    height: 180,
-  },
-  reqProductImg: {
-    width: "100%",
-    height: "100%",
-  },
-  statusFloat: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    backgroundColor: "#9333EA",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  statusFloatText: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "bold",
-  },
-  reqContent: {
-    padding: 20,
-  },
-  reqTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  reqRatingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  reqRatingText: {
-    fontSize: 14,
-    color: "#4B5563",
     marginLeft: 4,
   },
-  renterRow: {
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+  },
+  footerAction: {
     flexDirection: "row",
     alignItems: "center",
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+  },
+  footerActionText: {
+    fontSize: 14,
+    color: "#4B5563",
+    marginLeft: 6,
+    fontWeight: "500",
+  },
+  footerActionTextPrimary: {
+    fontSize: 14,
+    color: "#9333EA",
+    marginRight: 4,
+    fontWeight: "600",
+  },
+  renterHeader: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 16,
   },
   renterAvatarBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#F3F4F6",
     justifyContent: "center",
     alignItems: "center",
@@ -711,9 +601,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    marginBottom: 16,
   },
   historyName: {
     fontSize: 15,
@@ -727,9 +615,9 @@ const styles = StyleSheet.create({
   },
   historyBox: {
     backgroundColor: "#F9FAFB",
-    margin: 16,
-    padding: 12,
     borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
   },
   historyRow: {
     flexDirection: "row",
@@ -753,21 +641,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 16,
   },
   starsRow: {
     flexDirection: "row",
     alignItems: "center",
   },
   detailsBtnText: {
-    color: "#2563EB",
+    color: "#9333EA",
     fontSize: 13,
     fontWeight: "600",
   },
   approveReturnBtn: {
     height: 52,
-    backgroundColor: "#7C3AED",
+    backgroundColor: "#9333EA",
     borderRadius: 16,
     flexDirection: "row",
     justifyContent: "center",
