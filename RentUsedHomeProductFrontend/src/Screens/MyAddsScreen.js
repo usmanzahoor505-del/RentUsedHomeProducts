@@ -26,8 +26,9 @@ import {
   User,
   RotateCcw,
 } from "lucide-react-native";
-
-import { myListings } from "../data/products";
+import axios from "axios";
+import { API_URL } from "../utils/api";
+import { UserContext } from "../context/UserContext";
 
 const { width } = Dimensions.get("window");
 
@@ -56,18 +57,6 @@ const bookingRequests = [
     totalAmount: 1800,
     status: "approved",
   },
-  {
-    id: 3,
-    productName: "Premium DSLR Camera",
-    productImage: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=400&h=300",
-    productRating: 4.9,
-    renterName: "Zaka Ullah",
-    renterAvatar: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100&h=100&fit=crop",
-    startDate: "Feb 15, 2026",
-    numberOfDays: 3,
-    totalAmount: 4500,
-    status: "pending",
-  },
 ];
 
 const returnRequests = [
@@ -83,46 +72,7 @@ const returnRequests = [
     totalAmount: 4500,
     status: "awaiting_return",
   },
-  {
-    id: 102,
-    productName: "Power Drill",
-    productImage: "https://images.unsplash.com/photo-1504148455328-c376907d081c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400&h=300",
-    productRating: 4.7,
-    renterName: "Sara Ali",
-    renterAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
-    startDate: "Feb 12, 2026",
-    numberOfDays: 1,
-    totalAmount: 500,
-    status: "awaiting_return",
-  },
 ];
-
-const rentalHistory = [
-  {
-    id: 1,
-    productName: "Gaming Laptop",
-    renterName: "Ayesha Raza",
-    startDate: "Jan 15, 2026",
-    endDate: "Jan 20, 2026",
-    totalAmount: 15000,
-    status: "completed",
-    rating: 5,
-  },
-  {
-    id: 2,
-    productName: "Power Drill Set",
-    renterName: "Ahmed Khan",
-    startDate: "Jan 10, 2026",
-    endDate: "Jan 11, 2026",
-    totalAmount: 1800,
-    status: "completed",
-    rating: 4,
-  },
-];
-
-import axios from "axios";
-import { API_URL } from "../utils/api";
-import { UserContext } from "../context/UserContext";
 
 export default function MyAddsScreen() {
   const navigate = useNavigate();
@@ -154,7 +104,8 @@ export default function MyAddsScreen() {
           price: item.pricePerDay,
           status: item.status, 
           rating: item.avgRating || 0,
-          rentalsCount: 0 
+          views: item.views || 0,
+          messages: item.messages || 0
         }));
         setListings(mappedListings);
       } else {
@@ -168,6 +119,7 @@ export default function MyAddsScreen() {
             id: item.rentalId,
             productName: item.product.title,
             productImage: item.product.primaryImage || "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80",
+            renterId: item.renter.userId,
             renterName: item.renter.username,
             renterAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop", 
             startDate: start.toLocaleDateString(),
@@ -202,11 +154,11 @@ export default function MyAddsScreen() {
             </View>
             <View style={[
               styles.statusBadge, 
-              { backgroundColor: item.status === "active" ? "#DCFCE7" : "#FFEDD5" }
+              { backgroundColor: item.status === "active" || item.status === "Active" ? "#DCFCE7" : "#FFEDD5" }
             ]}>
               <Text style={[
                 styles.statusText, 
-                { color: item.status === "active" ? "#166534" : "#9A3412" }
+                { color: item.status === "active" || item.status === "Active" ? "#166534" : "#9A3412" }
               ]}>
                 {item.status.toUpperCase()}
               </Text>
@@ -245,23 +197,23 @@ export default function MyAddsScreen() {
           <Text style={styles.statusFloatText}>{item.status.toUpperCase()}</Text>
         </View>
       </View>
-      <View style={styles.reqContent}>
+      <div className="p-5">
         <Text style={styles.reqTitle}>{item.productName}</Text>
         <View style={styles.reqRatingRow}>
           <Star size={14} color="#FBBF24" fill="#FBBF24" />
-          <Text style={styles.reqRatingText}>{item.productRating}</Text>
+          <Text style={styles.reqRatingText}>{item.rating}</Text>
         </View>
         
         <TouchableOpacity 
           style={styles.renterRow}
-          onPress={() => navigate("/renter-profile/" + item.renter.userId)}
+          onPress={() => navigate("/renter-profile/" + item.renterId)}
         >
           <View style={styles.renterAvatarBox}>
             <User size={18} color="#9CA3AF" />
           </View>
           <View>
             <Text style={styles.renterLabel}>Requested by</Text>
-            <Text style={styles.renterName}>{item.renter.username}</Text>
+            <Text style={styles.renterName}>{item.renterName}</Text>
           </View>
         </TouchableOpacity>
 
@@ -281,7 +233,7 @@ export default function MyAddsScreen() {
           </View>
         </View>
 
-        {item.status === "pending" && (
+        {item.status.toLowerCase() === "pending" && (
           <View style={styles.actionBtnRow}>
             <TouchableOpacity style={styles.approveBtn}>
               <CheckCircle size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
@@ -293,7 +245,7 @@ export default function MyAddsScreen() {
             </TouchableOpacity>
           </View>
         )}
-      </View>
+      </div>
     </View>
   );
 
@@ -310,14 +262,14 @@ export default function MyAddsScreen() {
         
         <TouchableOpacity 
           style={styles.renterRow}
-          onPress={() => navigate("/renter-profile/" + item.renter.userId)}
+          onPress={() => navigate("/renter-profile/" + item.renterId)}
         >
           <View style={styles.renterAvatarBox}>
             <User size={18} color="#9CA3AF" />
           </View>
           <View>
             <Text style={styles.renterLabel}>Being returned by</Text>
-            <Text style={styles.renterName}>{item.renter.username}</Text>
+            <Text style={styles.renterName}>{item.renterName}</Text>
           </View>
         </TouchableOpacity>
 
@@ -343,9 +295,55 @@ export default function MyAddsScreen() {
     </View>
   );
 
+  const renderHistory = ({ item }) => (
+    <View style={styles.card}>
+      <View style={styles.historyHeader}>
+        <View>
+          <Text style={styles.historyName}>{item.productName}</Text>
+          <Text style={styles.historyRenter}>Rented by {item.renterName}</Text>
+        </View>
+        <View style={[
+          styles.statusBadge, 
+          { backgroundColor: item.status === "Completed" ? "#DCFCE7" : "#FEE2E2" }
+        ]}>
+          <Text style={[
+            styles.statusText, 
+            { color: item.status === "Completed" ? "#166534" : "#991B1B" }
+          ]}>
+            {item.status.toUpperCase()}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.historyBox}>
+        <View style={styles.historyRow}>
+          <Text style={styles.historyLabel}>Period:</Text>
+          <Text style={styles.historyValue}>{item.startDate} - {item.endDate}</Text>
+        </View>
+        <View style={styles.historyRow}>
+          <Text style={styles.historyLabel}>Total Amount:</Text>
+          <Text style={styles.historyValueBold}>Rs. {item.totalAmount.toLocaleString()}</Text>
+        </View>
+      </View>
+      <View style={styles.historyFooter}>
+        <View style={styles.starsRow}>
+          {[1, 2, 3, 4, 5].map((s) => (
+            <Star 
+              key={s} 
+              size={14} 
+              color={s <= item.rating ? "#FBBF24" : "#E5E7EB"} 
+              fill={s <= item.rating ? "#FBBF24" : "transparent"} 
+            />
+          ))}
+        </View>
+        <TouchableOpacity onPress={() => navigate("/rental-detail/" + item.id)}>
+          <Text style={styles.detailsBtnText}>View Details</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigate(-1)}>
@@ -354,7 +352,6 @@ export default function MyAddsScreen() {
           <Text style={styles.headerTitle}>My Dashboard</Text>
         </View>
 
-        {/* Tabs */}
         <View style={styles.tabsRow}>
           <TouchableOpacity
             onPress={() => setActiveTab("listings")}
@@ -367,11 +364,11 @@ export default function MyAddsScreen() {
             style={[styles.tab, activeTab === "requests" && styles.tabActive]}
           >
             <Text style={[styles.tabText, activeTab === "requests" && styles.tabTextActive]}>Requests</Text>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {bookingRequests.filter((r) => r.status === "pending").length}
-              </Text>
-            </View>
+            {(requests.length > 0) && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{requests.length}</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setActiveTab("history")}
@@ -384,9 +381,9 @@ export default function MyAddsScreen() {
             style={[styles.tab, activeTab === "returns" && styles.tabActive]}
           >
             <Text style={[styles.tabText, activeTab === "returns" && styles.tabTextActive]}>Returns</Text>
-            {returnRequests.length > 0 && (
+            {returns.length > 0 && (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>{returnRequests.length}</Text>
+                <Text style={styles.badgeText}>{returns.length}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -627,10 +624,13 @@ const styles = StyleSheet.create({
     borderBottomColor: "#F3F4F6",
     marginBottom: 16,
   },
-  renterAvatar: {
+  renterAvatarBox: {
     width: 48,
     height: 48,
     borderRadius: 24,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
   },
   renterLabel: {
@@ -772,10 +772,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#7C3AED",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
     elevation: 4,
   },
   emptyState: {

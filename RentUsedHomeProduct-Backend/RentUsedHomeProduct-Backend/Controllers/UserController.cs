@@ -108,12 +108,13 @@ namespace RentUsedHomeProduct_Backend.Controllers
                 }
 
                 // JWT Token banao
+                Console.WriteLine("Generating JWT Token...");
                 string token = GenerateJwtToken(user);
-                Console.WriteLine("Login successful!");
+                Console.WriteLine("Login successful! (V2)");
 
                 return Ok(new
                 {
-                    message = "Login successful!",
+                    message = "Login successful! (V2)",
                     token = token,
                     userId = user.UserId,
                     username = user.Username,
@@ -125,7 +126,13 @@ namespace RentUsedHomeProduct_Backend.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Login Exception", error = ex.Message, stackTrace = ex.StackTrace, inner = ex.InnerException?.Message });
+                Console.WriteLine($"LOGIN CRASH: {ex.Message}");
+                return StatusCode(500, new { 
+                    message = "Login Exception (V2)", 
+                    error = ex.Message, 
+                    stackTrace = ex.StackTrace, 
+                    inner = ex.InnerException?.Message 
+                });
             }
         }
 
