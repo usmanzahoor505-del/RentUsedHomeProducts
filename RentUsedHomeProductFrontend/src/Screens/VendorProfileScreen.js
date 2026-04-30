@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   SafeAreaView,
+  ActivityIndicator,
 } from "react-native";
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, Star, MapPin, Calendar, Package } from "lucide-react-native";
