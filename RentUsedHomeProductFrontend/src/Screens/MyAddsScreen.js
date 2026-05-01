@@ -99,6 +99,32 @@ export default function MyAddsScreen() {
     }
   };
 
+  const handleApproveRequest = async (rentalId) => {
+    try {
+      await axios.put(`${API_URL}/rental/status/${rentalId}`, "Active", {
+        headers: { "Content-Type": "application/json" }
+      });
+      Alert.alert("Success", "Rental request approved!");
+      fetchData(); // Refresh data
+    } catch (error) {
+      console.error("Failed to approve request", error);
+      Alert.alert("Error", "Failed to approve request");
+    }
+  };
+
+  const handleDeclineRequest = async (rentalId) => {
+    try {
+      await axios.put(`${API_URL}/rental/status/${rentalId}`, "Cancelled", {
+        headers: { "Content-Type": "application/json" }
+      });
+      Alert.alert("Declined", "Rental request has been declined.");
+      fetchData(); // Refresh data
+    } catch (error) {
+      console.error("Failed to decline request", error);
+      Alert.alert("Error", "Failed to decline request");
+    }
+  };
+
   const renderListing = ({ item }) => (
     <TouchableOpacity 
       style={styles.card} 
@@ -177,11 +203,17 @@ export default function MyAddsScreen() {
       </View>
       
       <View style={styles.actionBtnRow}>
-        <TouchableOpacity style={styles.declineBtn}>
+        <TouchableOpacity 
+          style={styles.declineBtn}
+          onPress={() => handleDeclineRequest(item.id)}
+        >
           <XCircle size={18} color="#EF4444" style={{ marginRight: 6 }} />
           <Text style={styles.declineBtnText}>Decline</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.approveBtn}>
+        <TouchableOpacity 
+          style={styles.approveBtn}
+          onPress={() => handleApproveRequest(item.id)}
+        >
           <CheckCircle size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
           <Text style={styles.approveBtnText}>Approve</Text>
         </TouchableOpacity>

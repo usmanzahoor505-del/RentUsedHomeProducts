@@ -29,22 +29,22 @@ import { UserContext } from "../context/UserContext";
 
 export default function MyRentalsScreen() {
   const navigate = useNavigate();
-  const { user } = React.useContext(UserContext);
+  const { userId } = React.useContext(UserContext);
   const [rentals, setRentals] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (user && user.userId) {
+    if (userId) {
       fetchRentals();
     } else {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [userId]);
 
   const fetchRentals = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get(`${API_URL}/rental/byrenter/${user.userId}`);
+      const response = await axios.get(`${API_URL}/rental/byrenter/${userId}`);
       
       const mappedRentals = response.data.map(item => {
         const start = new Date(item.startDate);
@@ -61,7 +61,7 @@ export default function MyRentalsScreen() {
           startDate: start.toLocaleDateString(),
           numberOfDays: diffDays,
           totalAmount: item.totalAmount || 0,
-          status: item.status.toLowerCase()
+          status: (item.status || "pending").toLowerCase()
         };
       });
       setRentals(mappedRentals);
@@ -76,6 +76,8 @@ export default function MyRentalsScreen() {
     switch (status) {
       case "active":
         return { bg: "#EFF6FF", text: "#1D4ED8" }; // Blue
+      case "pending":
+        return { bg: "#FFF7ED", text: "#EA580C" }; // Orange
       case "completed":
         return { bg: "#DCFCE7", text: "#15803D" }; // Green
       case "awaiting_return":

@@ -199,7 +199,7 @@ export default function ProductDetailScreen() {
           {/* Owner Details */}
           <TouchableOpacity 
             style={styles.ownerCard}
-            onPress={() => navigate("/vendor/" + (product.owner?.userId || 1))}
+            onPress={() => navigate("/vendor/" + (product.owner?.userId))}
           >
             <View style={styles.ownerInfo}>
               <View style={[styles.avatar, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6' }]}>

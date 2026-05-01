@@ -306,10 +306,16 @@ export default function AddProductScreen() {
           };
         });
 
+      if (!userId) {
+        Alert.alert("Authentication Error", "You must be logged in to add a product.");
+        navigate("/login");
+        return;
+      }
+
       const payload = {
         title:          title.trim(),
         description:    description.trim(),
-        userId:         userId || 1,
+        userId:         userId,
         categoryId:     selectedCategory,
         subCategoryId:  selectedSubCategoryId,
         condition:      parseInt(condition),
