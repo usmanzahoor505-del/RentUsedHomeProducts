@@ -1,9 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Http.Features;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 100 * 1024 * 1024; // 100MB
+});
 
 // Register services BEFORE calling Build()
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

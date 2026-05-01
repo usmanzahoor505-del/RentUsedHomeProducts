@@ -13,22 +13,12 @@ import {
   Alert,
 } from "react-native";
 import { useNavigate } from "react-router";
-import {
-  ArrowLeft,
-  Package,
-  Clock,
-  CheckCircle,
-  XCircle,
-  Star,
-  Eye,
-  MessageCircle,
-  Edit,
-  ChevronRight,
-  User,
-  RotateCcw,
+import { 
+  ArrowLeft, Package, Clock, CheckCircle, Star, User, 
+  ChevronRight, AlertCircle, Edit, Trash2, XCircle, RotateCcw 
 } from "lucide-react-native";
 import axios from "axios";
-import { API_URL } from "../utils/api";
+import { API_URL, IMAGE_BASE_URL } from "../utils/api";
 import { useUser } from "../context/UserContext";
 
 const { width } = Dimensions.get("window");
@@ -127,54 +117,84 @@ export default function MyAddsScreen() {
     }
   };
 
-  const renderListing = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.card} 
-      onPress={() => navigate("/product/" + item.id)}
-    >
-      <View style={styles.cardContent}>
-        <Image source={{ uri: item.image }} style={styles.productImage} />
-        <View style={styles.productInfo}>
-          <View style={styles.titleRow}>
-            <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: item.status === "Available" ? "#DCFCE7" : "#FEE2E2" }]}>
-              <Text style={[styles.statusText, { color: item.status === "Available" ? "#166534" : "#991B1B" }]}>
-                {item.status}
-              </Text>
+  const handleDeleteProduct = async (productId) => {
+    Alert.alert(
+      "Delete Product",
+      "Are you sure you want to delete this product?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              await axios.delete(`${API_URL}/products/${productId}`);
+              Alert.alert("Success", "Product deleted!");
+              fetchData(); // Refresh
+            } catch (error) {
+              Alert.alert("Error", "Failed to delete");
+            }
+          } 
+        }
+      ]
+    );
+  };
+
+  const renderListing = ({ item }) => {
+    let imageUrl = item.image || "https://via.placeholder.com/100";
+    if (imageUrl.startsWith('/')) {
+      imageUrl = IMAGE_BASE_URL + imageUrl;
+    }
+
+    return (
+      <TouchableOpacity 
+        style={styles.card} 
+        onPress={() => navigate("/product/" + item.id)}
+      >
+        <View style={styles.cardContent}>
+          <Image source={{ uri: imageUrl }} style={styles.productImage} />
+          <View style={styles.productInfo}>
+            <View style={styles.titleRow}>
+              <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
+              <View style={[styles.statusBadge, { backgroundColor: item.status === "Available" ? "#DCFCE7" : "#FEE2E2" }]}>
+                <Text style={[styles.statusText, { color: item.status === "Available" ? "#166534" : "#991B1B" }]}>
+                  {item.status}
+                </Text>
+              </View>
             </View>
-          </View>
-          
-          <Text style={styles.productPrice}>Rs. {item.price.toLocaleString()}<Text style={styles.priceUnit}>/day</Text></Text>
-          
-          <View style={styles.statsRow}>
-            <View style={styles.stat}>
-              <Star size={12} color="#FBBF24" fill="#FBBF24" />
-              <Text style={styles.statText}>{item.rating}</Text>
-            </View>
-            <View style={styles.stat}>
-              <Eye size={12} color="#6B7280" />
-              <Text style={styles.statText}>{item.views}</Text>
-            </View>
-            <View style={styles.stat}>
-              <MessageCircle size={12} color="#6B7280" />
-              <Text style={styles.statText}>{item.messages}</Text>
+            
+            <Text style={styles.productPrice}>Rs. {item.price.toLocaleString()}<Text style={styles.priceUnit}>/day</Text></Text>
+            
+            <View style={styles.statsRow}>
+              <View style={styles.stat}>
+                <Star size={12} color="#FBBF24" fill="#FBBF24" />
+                <Text style={styles.statText}>{item.rating.toFixed(1)}</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.stat}>
+                <Text style={styles.statText}>{item.messages} messages</Text>
+              </View>
             </View>
           </View>
         </View>
-      </View>
-      
-      <View style={styles.cardFooter}>
-        <TouchableOpacity style={styles.footerAction}>
-          <Edit size={16} color="#4B5563" />
-          <Text style={styles.footerActionText}>Edit</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.footerAction} onPress={() => navigate("/product/" + item.id)}>
-          <Text style={styles.footerActionTextPrimary}>View Details</Text>
-          <ChevronRight size={16} color="#9333EA" />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+        
+        <View style={styles.cardFooter}>
+          <TouchableOpacity style={styles.footerAction} onPress={() => Alert.alert("Coming Soon", "Edit feature is being finalized.")}>
+            <Edit size={16} color="#4B5563" />
+            <Text style={styles.footerActionText}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.footerAction} onPress={() => handleDeleteProduct(item.id)}>
+            <Trash2 size={16} color="#EF4444" />
+            <Text style={[styles.footerActionText, { color: "#EF4444" }]}>Delete</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.footerAction} onPress={() => navigate("/product/" + item.id)}>
+            <Text style={styles.footerActionTextPrimary}>Details</Text>
+            <ChevronRight size={16} color="#9333EA" />
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderRequest = ({ item }) => (
     <View style={styles.card}>

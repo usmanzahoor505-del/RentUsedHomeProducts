@@ -4,6 +4,7 @@ import axios from 'axios';
 // For iOS Emulator, localhost = localhost
 // For Physical Device, use your local machine's IP (e.g., 192.168.1.10)
 export const API_URL = 'http://10.63.113.42:5257/api';
+export const IMAGE_BASE_URL = 'http://10.63.113.42:5257';
 const baseURL = API_URL;
 
 const api = axios.create({

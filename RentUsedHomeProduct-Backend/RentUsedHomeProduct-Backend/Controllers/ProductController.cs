@@ -276,7 +276,8 @@ namespace RentUsedHomeProduct_Backend.Controllers
         // POST: api/products/upload-images/1
         // =====================
         [HttpPost("upload-images/{productId}")]
-        public async Task<IActionResult> UploadImages(int productId, List<IFormFile> images, [FromQuery] bool isPrimary = false)
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> UploadImages(int productId, [FromForm] List<IFormFile> images, [FromQuery] bool isPrimary = false)
         {
             var product = await _context.Products.FindAsync(productId);
             if (product == null)

@@ -34,7 +34,7 @@ import { format } from "date-fns";
 import { useDateFilter } from "../context/DateFilterContext";
 import { useUser } from "../context/UserContext";
 import axios from "axios";
-import { API_URL } from "../utils/api";
+import { API_URL, IMAGE_BASE_URL } from "../utils/api";
 
 const { width } = Dimensions.get("window");
 
@@ -129,9 +129,14 @@ export default function HomeScreen() {
   const filteredProducts = getFilteredProducts();
 
   const renderProduct = ({ item }) => {
-    const primaryImage = item.images?.find((img) => img.isPrimary)?.imageUrl ||
+    let primaryImage = item.images?.find((img) => img.isPrimary)?.imageUrl ||
                          item.images?.[0]?.imageUrl ||
                          "https://via.placeholder.com/300x200?text=No+Image";
+    
+    if (primaryImage && primaryImage.startsWith('/')) {
+      primaryImage = IMAGE_BASE_URL + primaryImage;
+    }
+
     return (
       <TouchableOpacity
         style={styles.productCard}

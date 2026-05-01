@@ -356,6 +356,7 @@ export default function AddProductScreen() {
         console.log("=== Uploading Images for Product ID:", productId);
         await axios.post(`${API_URL}/products/upload-images/${productId}`, formData, {
           headers: { "Content-Type": "multipart/form-data" },
+          timeout: 60000, // 60 seconds timeout
         });
       }
 

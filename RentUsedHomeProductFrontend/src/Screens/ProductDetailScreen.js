@@ -30,7 +30,7 @@ import { useDateFilter } from "../context/DateFilterContext";
 import { useUser } from "../context/UserContext";
 
 import axios from "axios";
-import { API_URL } from "../utils/api";
+import { API_URL, IMAGE_BASE_URL } from "../utils/api";
 
 const { width } = Dimensions.get("window");
 
@@ -92,7 +92,7 @@ export default function ProductDetailScreen() {
   }
 
   const productImages = product.images && product.images.length > 0 
-    ? product.images.map(img => img.imageUrl) 
+    ? product.images.map(img => img.imageUrl.startsWith('/') ? IMAGE_BASE_URL + img.imageUrl : img.imageUrl) 
     : ["https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80"];
 
   const nextImage = () => {
@@ -145,19 +145,8 @@ export default function ProductDetailScreen() {
             </View>
           )}
 
-          {productImages.length > 1 && (
-            <View style={styles.carouselControls}>
-              <TouchableOpacity onPress={prevImage} style={styles.arrowBtn}>
-                <ChevronLeft size={20} color="#111827" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={nextImage} style={styles.arrowBtn}>
-                <ChevronRight size={20} color="#111827" />
-              </TouchableOpacity>
-            </View>
-          )}
-
           <View style={styles.dotsContainer}>
-            {productImages.map((_, index) => (
+            {(product.images && product.images.length > 0 ? product.images : [1]).map((_, index) => (
               <View 
                 key={index} 
                 style={[styles.dot, index === currentImageIndex && styles.activeDot]} 
