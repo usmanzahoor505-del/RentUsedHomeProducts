@@ -20,16 +20,17 @@ import {
   User,
   ChevronRight,
   AlertCircle,
+  RotateCcw,
 } from "lucide-react-native";
 import { myRentals, emptyRentalsMessage } from "../data/products";
 
 import axios from "axios";
 import { API_URL } from "../utils/api";
-import { UserContext } from "../context/UserContext";
+import { useUser } from "../context/UserContext";
 
 export default function MyRentalsScreen() {
   const navigate = useNavigate();
-  const { userId } = React.useContext(UserContext);
+  const { userId } = useUser();
   const [rentals, setRentals] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
