@@ -335,29 +335,28 @@ export default function AddProductScreen() {
       if (images.length > 0 && productId) {
         const formData = new FormData();
         images.forEach((uri, index) => {
-          let fileName = uri.split("/").pop();
-          // Agar filename mein extension nahi hai (Android content URIs), toh .jpg add kardo
-          if (!fileName.includes(".")) {
-            fileName = `image_${index}_${Date.now()}.jpg`;
-          }
+          const fileName = uri.split("/").pop() || `image_${index}.jpg`;
+          const type = "image/jpeg"; // Defaulting to jpeg for simplicity
           
-          const match = /\.(\w+)$/.exec(fileName);
-          const type = match ? `image/${match[1]}` : "image/jpeg";
-          
-          console.log(`Uploading Image ${index}: name=${fileName}, type=${type}`);
+          console.log(`Uploading Image ${index}: uri=${uri}, name=${fileName}`);
           
           formData.append("images", {
-            uri: Platform.OS === "android" ? uri : uri.replace("file://", ""),
+            uri: uri,
             name: fileName,
             type: type
           });
         });
 
         console.log("=== Uploading Images for Product ID:", productId);
-        await axios.post(`${API_URL}/products/upload-images/${productId}`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-          timeout: 60000, // 60 seconds timeout
-        });
+        try {
+          await axios.post(`${API_URL}/products/upload-images/${productId}`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+            timeout: 120000, // Increased to 2 minutes for slow uploads
+          });
+        } catch (imgError) {
+          console.error("Image Upload Error:", imgError);
+          throw new Error("Product created, but images failed to upload. Check your internet.");
+        }
       }
 
       Alert.alert("✅ Success!", "Your product has been listed successfully!", [

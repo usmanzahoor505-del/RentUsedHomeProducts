@@ -12,7 +12,7 @@ import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, Calendar, User, Star, Package, AlertCircle } from "lucide-react-native";
 import { Alert, ActivityIndicator } from "react-native";
 import axios from "axios";
-import { API_URL } from "../utils/api";
+import { API_URL, IMAGE_BASE_URL } from "../utils/api";
 
 export default function RentalDetailScreen() {
   const navigate = useNavigate();
@@ -27,28 +27,34 @@ export default function RentalDetailScreen() {
   const fetchRental = async () => {
     try {
       const res = await axios.get(`${API_URL}/rental/${id}`);
-      
       const item = res.data;
-      const start = new Date(item.startDate);
-      const end = new Date(item.endDate);
+      
+      const start = item.startDate ? new Date(item.startDate) : new Date();
+      const end = item.endDate ? new Date(item.endDate) : new Date();
       const diffDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)) || 1;
+
+      let primaryImage = item.product?.primaryImage || "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80";
+      if (primaryImage.startsWith('/')) {
+        primaryImage = IMAGE_BASE_URL + primaryImage;
+      }
 
       setRental({
         id: item.rentalId,
-        productImage: item.product?.primaryImage || "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80",
-        productName: item.product?.title,
+        productImage: primaryImage,
+        productName: item.product?.title || "Product",
         status: item.status?.toLowerCase() || "pending",
         totalAmount: item.totalAmount || 0,
         startDate: start.toLocaleDateString(),
         endDate: end.toLocaleDateString(),
         numberOfDays: diffDays,
         pricePerDay: item.product?.pricePerDay || 0,
-        ownerName: item.owner?.username,
+        ownerName: item.owner?.username || "Owner",
         ownerRating: item.ownerRating || 0,
-        canReturn: item.status === "Active" || item.status === "active"
+        canReturn: item.status?.toLowerCase() === "active"
       });
     } catch (error) {
-      console.error(error);
+      console.error("Fetch Rental Error:", error);
+      Alert.alert("Error", "Could not load rental details. Please check your internet.");
     } finally {
       setIsLoading(false);
     }
