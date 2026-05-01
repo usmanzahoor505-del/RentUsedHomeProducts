@@ -62,7 +62,8 @@ export default function MyRentalsScreen() {
           startDate: start.toLocaleDateString(),
           numberOfDays: diffDays,
           totalAmount: item.totalAmount || 0,
-          status: (item.status || "pending").toLowerCase()
+          status: (item.status || "pending").toLowerCase(),
+          productRating: item.productRating || 0 // Check if already rated
         };
       });
       setRentals(mappedRentals);
@@ -153,10 +154,23 @@ export default function MyRentalsScreen() {
                 <ChevronRight size={16} color="#9333EA" />
               </View>
             ) : item.status === "completed" ? (
-              <View style={styles.completedAction}>
-                <CheckCircle size={16} color="#16A34A" style={{ marginRight: 6 }} />
-                <Text style={styles.completedText}>Completed & Rated</Text>
-              </View>
+              item.productRating > 0 ? (
+                <View style={styles.completedAction}>
+                  <CheckCircle size={16} color="#16A34A" style={{ marginRight: 6 }} />
+                  <Text style={styles.completedText}>Completed & Rated</Text>
+                </View>
+              ) : (
+                <TouchableOpacity 
+                  style={styles.activeAction}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    navigate("/customer-rate-return/" + item.id);
+                  }}
+                >
+                  <Text style={styles.activeActionText}>Rate Owner & Product</Text>
+                  <Star size={16} color="#9333EA" fill="#9333EA" />
+                </TouchableOpacity>
+              )
             ) : item.status === "awaiting_return" ? (
               <View style={styles.pendingAction}>
                 <Clock size={16} color="#CA8A04" style={{ marginRight: 6 }} />
