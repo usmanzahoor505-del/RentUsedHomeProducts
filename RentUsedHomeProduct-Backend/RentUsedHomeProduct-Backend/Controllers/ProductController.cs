@@ -27,6 +27,7 @@ namespace RentUsedHomeProduct_Backend.Controllers
         public async Task<IActionResult> GetAll()
         {
             var products = await _context.Products
+                .Where(p => p.Status == "Available") // Only show available products
                 .Include(p => p.User)
                 .Include(p => p.Category)
                 .Include(p => p.ProductAttributeValues)

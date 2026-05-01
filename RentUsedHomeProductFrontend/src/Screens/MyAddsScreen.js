@@ -69,6 +69,7 @@ export default function MyAddsScreen() {
             productImage: item.product?.primaryImage || "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80",
             renterId: item.renter?.userId,
             renterName: item.renter?.username || "Guest",
+            renterAvgRating: item.renter?.avgRating || 0,
             renterAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop", 
             startDate: start.toLocaleDateString(),
             endDate: end.toLocaleDateString(),
@@ -198,15 +199,26 @@ export default function MyAddsScreen() {
 
   const renderRequest = ({ item }) => (
     <View style={styles.card}>
-      <View style={styles.renterHeader}>
+      <TouchableOpacity 
+        style={styles.renterHeader}
+        onPress={() => navigate("/vendor/" + item.renterId)}
+      >
         <View style={styles.renterAvatarBox}>
           <User size={20} color="#6B7280" />
         </View>
-        <View>
-          <Text style={styles.renterLabel}>New Request From</Text>
-          <Text style={styles.renterName}>{item.renterName}</Text>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View>
+              <Text style={styles.renterLabel}>New Request From</Text>
+              <Text style={styles.renterName}>{item.renterName}</Text>
+            </View>
+            <View style={styles.renterRatingRow}>
+              <Star size={14} color="#FBBF24" fill="#FBBF24" />
+              <Text style={styles.renterRatingText}>{item.renterAvgRating?.toFixed(1) || "New"}</Text>
+            </View>
+          </View>
         </View>
-      </View>
+      </TouchableOpacity>
       
       <View style={styles.reqDetailsBox}>
         <View style={styles.reqDetailRow}>
@@ -621,6 +633,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "bold",
     color: "#111827",
+  },
+  renterRatingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  renterRatingText: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#D97706",
+    marginLeft: 4,
   },
   reqDetailsBox: {
     backgroundColor: "#F9FAFB",

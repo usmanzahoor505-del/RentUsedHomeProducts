@@ -22,6 +22,7 @@ export default function VendorProfileScreen() {
   const [vendorProfile, setVendorProfile] = React.useState(null);
   const [listedProducts, setListedProducts] = React.useState([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [activeTab, setActiveTab] = React.useState("listings");
 
   React.useEffect(() => {
     if (id) {
@@ -65,7 +66,7 @@ export default function VendorProfileScreen() {
         <TouchableOpacity style={styles.backBtn} onPress={() => navigate(-1)}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Vendor Profile</Text>
+        <Text style={styles.headerTitle}>User Profile</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -83,105 +84,124 @@ export default function VendorProfileScreen() {
               </View>
               <View style={styles.memberRow}>
                 <Calendar size={12} color="#9CA3AF" />
-                <Text style={styles.memberText}>Joined Platform</Text>
+                <Text style={styles.memberText}>Member since 2024</Text>
               </View>
             </View>
-
-            <TouchableOpacity 
-              style={[styles.followBtn, isFollowed && styles.followingBtn]} 
-              onPress={() => setIsFollowed(!isFollowed)}
-            >
-              <Text style={[styles.followBtnText, isFollowed && styles.followingBtnText]}>
-                {isFollowed ? "Following" : "Follow"}
-              </Text>
-            </TouchableOpacity>
           </View>
 
           {/* Stats Grid */}
           <View style={styles.statsGrid}>
             <View style={[styles.statItem, { backgroundColor: "#F5F3FF" }]}>
               <Star size={16} color="#FBBF24" fill="#FBBF24" />
-              <Text style={styles.statValue}>{vendorProfile.avgOwnerRating || 0}</Text>
-              <Text style={styles.statLabel}>Rating</Text>
+              <Text style={styles.statValue}>{vendorProfile.avgOwnerRating?.toFixed(1) || 0}</Text>
+              <Text style={styles.statLabel}>As Owner</Text>
+            </View>
+            <View style={[styles.statItem, { backgroundColor: "#EFF6FF" }]}>
+              <Star size={16} color="#2563EB" fill="#2563EB" />
+              <Text style={styles.statValue}>{vendorProfile.avgRenterRating?.toFixed(1) || 0}</Text>
+              <Text style={styles.statLabel}>As Renter</Text>
             </View>
             <View style={[styles.statItem, { backgroundColor: "#F0FDF4" }]}>
               <Package size={16} color="#16A34A" />
               <Text style={styles.statValue}>{listedProducts.length}</Text>
               <Text style={styles.statLabel}>Listings</Text>
             </View>
-            <View style={[styles.statItem, { backgroundColor: "#EFF6FF" }]}>
-              <Star size={16} color="#2563EB" />
-              <Text style={styles.statValue}>{vendorProfile.reviewsAsOwner?.length || 0}</Text>
-              <Text style={styles.statLabel}>Reviews</Text>
-            </View>
           </View>
         </View>
 
-        {/* Reviews Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Reviews</Text>
-          {vendorProfile.reviewsAsOwner && vendorProfile.reviewsAsOwner.length > 0 ? (
-            vendorProfile.reviewsAsOwner.map((review) => (
-              <View key={review.rentalId} style={styles.reviewItem}>
-                <View style={styles.reviewHeader}>
-                  <View>
-                    <Text style={styles.reviewerName}>{review.renterName}</Text>
-                  </View>
-                  <View style={styles.reviewRating}>
-                    <Star size={14} color="#FBBF24" fill="#FBBF24" />
-                    <Text style={styles.reviewRatingValue}>{review.productRating}</Text>
-                  </View>
-                </View>
-                <Text style={styles.reviewComment}>{review.productReview || "No comment provided."}</Text>
-                <Text style={styles.reviewDate}>{new Date(review.date).toLocaleDateString()}</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={{ color: "#6B7280", fontStyle: "italic" }}>No reviews yet.</Text>
-          )}
+        {/* Tabs */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === "listings" && styles.activeTab]} 
+            onPress={() => setActiveTab("listings")}
+          >
+            <Text style={[styles.tabText, activeTab === "listings" && styles.activeTabText]}>Listings</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === "owner_reviews" && styles.activeTab]} 
+            onPress={() => setActiveTab("owner_reviews")}
+          >
+            <Text style={[styles.tabText, activeTab === "owner_reviews" && styles.activeTabText]}>Owner Reviews</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === "renter_reviews" && styles.activeTab]} 
+            onPress={() => setActiveTab("renter_reviews")}
+          >
+            <Text style={[styles.tabText, activeTab === "renter_reviews" && styles.activeTabText]}>Customer Reviews</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Listed Products */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Other Listings</Text>
-          {listedProducts.length > 0 ? (
-            listedProducts.map((product) => (
-              <TouchableOpacity
-                key={product.productId}
-                style={styles.productListCard}
-                onPress={() => navigate("/product/" + product.productId)}
-              >
-                <Image 
-                  source={{ uri: product.images && product.images.length > 0 ? product.images[0].imageUrl : "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80" }} 
-                  style={styles.listProductImage} 
-                />
-                <View style={styles.listProductInfo}>
-                  <Text style={styles.listProductName} numberOfLines={1}>{product.title}</Text>
-                  <View style={styles.listRatingRow}>
-                    <Star size={12} color="#FBBF24" fill="#FBBF24" />
-                    <Text style={styles.listRatingText}>{product.avgRating || 0}</Text>
-                  </View>
-                  <Text style={styles.listProductPrice}>
-                    Rs. {product.pricePerDay.toLocaleString()}
-                    <Text style={styles.listPriceUnit}>/day</Text>
-                  </Text>
-                </View>
-                <View 
-                  style={[
-                    styles.statusTag, 
-                    product.status === "Available" ? styles.statusAvailable : styles.statusRented
-                  ]}
+        {/* Tab Content */}
+        {activeTab === "listings" && (
+          <View style={styles.section}>
+            {listedProducts.length > 0 ? (
+              listedProducts.map((product) => (
+                <TouchableOpacity
+                  key={product.productId}
+                  style={styles.productListCard}
+                  onPress={() => navigate("/product/" + product.productId)}
                 >
-                  <Text style={[styles.statusTagText, { color: product.status === "Available" ? "#15803D" : "#B91C1C" }]}>
-                    {product.status || "Available"}
-                  </Text>
+                  <Image 
+                    source={{ uri: product.images && product.images.length > 0 ? product.images[0].imageUrl : "https://via.placeholder.com/100" }} 
+                    style={styles.listProductImage} 
+                  />
+                  <View style={styles.listProductInfo}>
+                    <Text style={styles.listProductName} numberOfLines={1}>{product.title}</Text>
+                    <View style={styles.listRatingRow}>
+                      <Star size={12} color="#FBBF24" fill="#FBBF24" />
+                      <Text style={styles.listRatingText}>{product.avgRating || 0}</Text>
+                    </View>
+                    <Text style={styles.listProductPrice}>Rs. {product.pricePerDay}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>No products listed.</Text>
+            )}
+          </View>
+        )}
+
+        {activeTab === "owner_reviews" && (
+          <View style={styles.section}>
+            {vendorProfile.reviewsAsOwner && vendorProfile.reviewsAsOwner.length > 0 ? (
+              vendorProfile.reviewsAsOwner.map((review) => (
+                <View key={review.rentalId} style={styles.reviewItem}>
+                  <View style={styles.reviewHeader}>
+                    <Text style={styles.reviewerName}>{review.renterName}</Text>
+                    <View style={styles.reviewRating}>
+                      <Star size={14} color="#FBBF24" fill="#FBBF24" />
+                      <Text style={styles.reviewRatingValue}>{review.productRating}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.reviewComment}>{review.productReview || "No comment."}</Text>
                 </View>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <Text style={{ color: "#6B7280", fontStyle: "italic" }}>No products listed.</Text>
-          )}
-        </View>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>No owner reviews yet.</Text>
+            )}
+          </View>
+        )}
+
+        {activeTab === "renter_reviews" && (
+          <View style={styles.section}>
+            {vendorProfile.reviewsAsRenter && vendorProfile.reviewsAsRenter.length > 0 ? (
+              vendorProfile.reviewsAsRenter.map((review) => (
+                <View key={review.rentalId} style={styles.reviewItem}>
+                  <View style={styles.reviewHeader}>
+                    <Text style={styles.reviewerName}>{review.ownerName} (Owner)</Text>
+                    <View style={styles.reviewRating}>
+                      <Star size={14} color="#FBBF24" fill="#FBBF24" />
+                      <Text style={styles.reviewRatingValue}>{review.renterRating}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.reviewComment}>{review.renterReview || "No comment."}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>No customer reviews yet.</Text>
+            )}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -327,6 +347,41 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#111827",
     marginBottom: 16,
+  },
+  tabContainer: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 6,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: 12,
+  },
+  activeTab: {
+    backgroundColor: "#F5F3FF",
+  },
+  tabText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  activeTabText: {
+    color: "#9333EA",
+  },
+  emptyText: {
+    textAlign: "center",
+    color: "#9CA3AF",
+    fontStyle: "italic",
+    marginTop: 20,
   },
   reviewItem: {
     borderBottomWidth: 1,

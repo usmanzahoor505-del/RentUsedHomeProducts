@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   SafeAreaView,
+  ActivityIndicator,
 } from "react-native";
 import { useNavigate } from "react-router";
 import LinearGradient from "react-native-linear-gradient";
@@ -23,26 +24,49 @@ import {
   Calendar,
   Shield,
   Heart,
-
 } from "lucide-react-native";
 import { useUser } from "../context/UserContext";
+import axios from "axios";
+import { API_URL } from "../utils/api";
 
 export default function ProfileScreen() {
   const navigate = useNavigate();
-  const { userName, userCity, setUserEmail, setIsLoggedIn, setToken } = useUser();
+  const { userId, isLoggedIn, setIsLoggedIn, setUserEmail, setToken } = useUser();
+  const [profile, setProfile] = React.useState(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    if (isLoggedIn && userId) {
+      fetchProfile();
+    } else {
+      setIsLoading(false);
+    }
+  }, [userId, isLoggedIn]);
+
+  const fetchProfile = async () => {
+    try {
+      setIsLoading(true);
+      const res = await axios.get(`${API_URL}/users/profile/${userId}`);
+      setProfile(res.data);
+    } catch (error) {
+      console.error("Failed to fetch profile", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const userStats = [
-    { label: "Listings", value: "12", icon: Package, color: "#2563EB" },
-    { label: "Reviews", value: "156", icon: Star, color: "#EAB308" },
-    { label: "Rating", value: "4.9", icon: Star, color: "#EAB308" },
-    { label: "Rentals", value: "45", icon: Package, color: "#16A34A" },
+    { label: "Listings", value: profile?.listingsCount || "0", icon: Package, color: "#2563EB" },
+    { label: "As Owner", value: profile?.avgOwnerRating?.toFixed(1) || "0.0", icon: Star, color: "#EAB308" },
+    { label: "As Renter", value: profile?.avgRenterRating?.toFixed(1) || "0.0", icon: Star, color: "#EAB308" },
+    { label: "Reviews", value: (profile?.reviewsAsOwner?.length || 0) + (profile?.reviewsAsRenter?.length || 0), icon: Package, color: "#16A34A" },
   ];
 
   const menuItems = [
     { icon: Package, label: "My Listings", path: "/my-adds", color: "#2563EB" },
     { icon: Package, label: "My Rentals", path: "/my-rentals", color: "#9333EA" },
     { icon: Heart, label: "Favorites", path: "/home", color: "#DC2626" },
-    { icon: Star, label: "My Reviews", path: "/ratings", color: "#CA8A04" },
+    { icon: Star, label: "My Reviews", path: "/vendor/" + userId, color: "#CA8A04" },
 
     { icon: Shield, label: "Trust & Safety", path: "/home", color: "#16A34A" },
     { icon: Settings, label: "Settings", path: "/home", color: "#4B5563" },
@@ -53,6 +77,21 @@ export default function ProfileScreen() {
     setUserEmail("");
     setToken(null);
     navigate("/login", { replace: true });
+  };
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#9333EA" />
+      </View>
+    );
+  }
+
+  const userData = profile || {
+    username: "Guest User",
+    email: "N/A",
+    phoneNo: "N/A",
+    city: "N/A"
   };
 
   return (
@@ -69,7 +108,7 @@ export default function ProfileScreen() {
           <View style={styles.profileInfo}>
             <View style={styles.avatarContainer}>
               <Image
-                source={{ uri: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop" }}
+                source={{ uri: "https://ui-avatars.com/api/?name=" + userData.username + "&background=random&size=200" }}
                 style={styles.avatar}
               />
               <TouchableOpacity style={styles.editAvatarBtn}>
@@ -77,10 +116,10 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
             <View style={styles.nameContainer}>
-              <Text style={styles.userName}>{userName || "Ahmed Khan"}</Text>
+              <Text style={styles.userName}>{userData.username}</Text>
               <View style={styles.locationRow}>
                 <MapPin size={14} color="#DBEAFE" />
-                <Text style={styles.userLocation}>{userCity || "Karachi, Sindh"}</Text>
+                <Text style={styles.userLocation}>{userData.city}</Text>
               </View>
               <View style={styles.verifiedBadge}>
                 <Text style={styles.verifiedText}>Verified Member</Text>
@@ -111,21 +150,21 @@ export default function ProfileScreen() {
             <Mail size={20} color="#9CA3AF" style={styles.infoIcon} />
             <View>
               <Text style={styles.infoLabel}>Email</Text>
-              <Text style={styles.infoValue}>ahmed.khan@example.com</Text>
+              <Text style={styles.infoValue}>{userData.email}</Text>
             </View>
           </View>
           <View style={styles.infoItem}>
             <Phone size={20} color="#9CA3AF" style={styles.infoIcon} />
             <View>
               <Text style={styles.infoLabel}>Phone</Text>
-              <Text style={styles.infoValue}>+92 300 1234567</Text>
+              <Text style={styles.infoValue}>{userData.phoneNo || "Not provided"}</Text>
             </View>
           </View>
           <View style={styles.infoItem}>
             <Calendar size={20} color="#9CA3AF" style={styles.infoIcon} />
             <View>
-              <Text style={styles.infoLabel}>Member Since</Text>
-              <Text style={styles.infoValue}>January 2023</Text>
+              <Text style={styles.infoLabel}>Account Status</Text>
+              <Text style={styles.infoValue}>Active Member</Text>
             </View>
           </View>
         </View>

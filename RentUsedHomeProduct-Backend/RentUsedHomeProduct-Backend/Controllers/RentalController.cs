@@ -149,7 +149,11 @@ namespace RentUsedHomeProduct_Backend.Controllers
                         r.Product.Title,
                         PrimaryImage = r.Product.ProductImages.Where(img => img.IsPrimary).Select(img => img.ImageUrl).FirstOrDefault() ?? r.Product.ProductImages.Select(img => img.ImageUrl).FirstOrDefault()
                     },
-                    Renter = new { r.Renter.UserId, r.Renter.Username },
+                    Renter = new { 
+                        r.Renter.UserId, 
+                        r.Renter.Username,
+                        AvgRating = r.Renter.AvgRenterRating 
+                    },
                     r.StartDate,
                     r.EndDate,
                     r.TotalAmount,
@@ -177,6 +181,7 @@ namespace RentUsedHomeProduct_Backend.Controllers
             var isBooked = await _context.Rentals
                 .AnyAsync(r => r.ProductId == productId &&
                                r.Status != "Cancelled" &&
+                               r.Status != "Completed" &&
                                r.StartDate < endDate &&
                                r.EndDate > startDate);
 
@@ -222,6 +227,7 @@ namespace RentUsedHomeProduct_Backend.Controllers
             var isBooked = await _context.Rentals
                 .AnyAsync(r => r.ProductId == dto.ProductId &&
                                r.Status != "Cancelled" &&
+                               r.Status != "Completed" &&
                                r.StartDate < dto.EndDate &&
                                r.EndDate > dto.StartDate);
 
@@ -268,9 +274,18 @@ namespace RentUsedHomeProduct_Backend.Controllers
                 return BadRequest(new { message = "Invalid status! Valid: Pending, Active, Awaiting_Return, Completed, Cancelled" });
 
             rental.Status = status;
+
+            // Sync with Product Status
+            var product = await _context.Products.FindAsync(rental.ProductId);
+            if (product != null)
+            {
+                if (status == "Active") product.Status = "Rented";
+                else if (status == "Cancelled") product.Status = "Available";
+            }
+
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Rental status updated successfully!" });
+            return Ok(new { message = $"Rental status updated to {status}!" });
         }
 
         // =====================
@@ -338,9 +353,16 @@ namespace RentUsedHomeProduct_Backend.Controllers
             rental.RenterReview = dto.RenterReview;
             rental.Status = "Completed";
 
+            // Mark product as available again
+            var product = await _context.Products.FindAsync(rental.ProductId);
+            if (product != null)
+            {
+                product.Status = "Available";
+            }
+
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Return confirmed and rental completed!" });
+            return Ok(new { message = "Return confirmed, product is now Available!" });
         }
 
         // =====================
