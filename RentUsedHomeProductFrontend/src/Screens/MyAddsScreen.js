@@ -40,6 +40,7 @@ export default function MyAddsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [listings, setListings] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [activeRentals, setActiveRentals] = useState([]);
   const [returns, setReturns] = useState([]);
   const [history, setHistory] = useState([]);
 
@@ -89,7 +90,8 @@ export default function MyAddsScreen() {
         });
         
         setRequests(mappedRentals.filter(r => r.status === "Pending"));
-        setReturns(mappedRentals.filter(r => r.status === "Active")); 
+        setActiveRentals(mappedRentals.filter(r => r.status === "Active"));
+        setReturns(mappedRentals.filter(r => r.status === "Awaiting_Return")); 
         setHistory(mappedRentals.filter(r => r.status === "Completed" || r.status === "Cancelled"));
       }
     } catch (error) {
@@ -320,6 +322,17 @@ export default function MyAddsScreen() {
             )}
           </TouchableOpacity>
           <TouchableOpacity 
+            onPress={() => setActiveTab("active_rentals")}
+            style={[styles.tab, activeTab === "active_rentals" && styles.tabActive]}
+          >
+            <Text style={[styles.tabText, activeTab === "active_rentals" && styles.tabTextActive]}>Active</Text>
+            {activeRentals.length > 0 && (
+              <View style={[styles.badge, { backgroundColor: "#3B82F6" }]}>
+                <Text style={styles.badgeText}>{activeRentals.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity 
             onPress={() => setActiveTab("returns")}
             style={[styles.tab, activeTab === "returns" && styles.tabActive]}
           >
@@ -336,6 +349,12 @@ export default function MyAddsScreen() {
           >
             <Text style={[styles.tabText, activeTab === "history" && styles.tabTextActive]}>History</Text>
           </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={() => setActiveTab("history")}
+            style={[styles.tab, activeTab === "history" && styles.tabActive]}
+          >
+            <Text style={[styles.tabText, activeTab === "history" && styles.tabTextActive]}>History</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -344,29 +363,48 @@ export default function MyAddsScreen() {
           <ActivityIndicator size="large" color="#9333EA" />
         </View>
       ) : (
-        <FlatList
-          data={
-            activeTab === "listings" ? listings : 
-            activeTab === "requests" ? requests : 
-            activeTab === "returns" ? returns :
-            history
-          }
-          renderItem={
-            activeTab === "listings" ? renderListing : 
-            activeTab === "requests" ? renderRequest : 
-            activeTab === "returns" ? renderReturnRequest :
-            renderHistory
-          }
-          keyExtractor={(item, index) => item?.id?.toString() || index.toString()}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Package size={64} color="#E5E7EB" style={{ marginBottom: 16 }} />
-              <Text style={styles.emptyText}>No {activeTab} found.</Text>
-            </View>
-          }
-        />
+        <View style={{ flex: 1 }}>
+          {activeTab === "listings" && (
+            <FlatList
+              data={listings}
+              renderItem={renderListing}
+              keyExtractor={(item) => item.id.toString()}
+              contentContainerStyle={styles.listContent}
+            />
+          )}
+          {activeTab === "requests" && (
+            <FlatList
+              data={requests}
+              renderItem={renderRequest}
+              keyExtractor={(item) => item.id.toString()}
+              contentContainerStyle={styles.listContent}
+            />
+          )}
+          {activeTab === "active_rentals" && (
+            <FlatList
+              data={activeRentals}
+              renderItem={renderHistory}
+              keyExtractor={(item) => item.id.toString()}
+              contentContainerStyle={styles.listContent}
+            />
+          )}
+          {activeTab === "returns" && (
+            <FlatList
+              data={returns}
+              renderItem={renderReturnRequest}
+              keyExtractor={(item) => item.id.toString()}
+              contentContainerStyle={styles.listContent}
+            />
+          )}
+          {activeTab === "history" && (
+            <FlatList
+              data={history}
+              renderItem={renderHistory}
+              keyExtractor={(item) => item.id.toString()}
+              contentContainerStyle={styles.listContent}
+            />
+          )}
+        </View>
       )}
     </SafeAreaView>
   );

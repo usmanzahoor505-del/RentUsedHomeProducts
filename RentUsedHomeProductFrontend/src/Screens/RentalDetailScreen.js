@@ -81,10 +81,17 @@ export default function RentalDetailScreen() {
         { text: "Cancel", style: "cancel" },
         { 
           text: "Send Request", 
-          onPress: () => {
-            // Update local state for demo
-            setRental({ ...rental, status: "awaiting_return" });
-            Alert.alert("Request Sent", "Your return request has been sent to the owner.");
+          onPress: async () => {
+            try {
+              await axios.put(`${API_URL}/rental/status/${rental.id}`, "Awaiting_Return", {
+                headers: { "Content-Type": "application/json" }
+              });
+              setRental({ ...rental, status: "awaiting_return", canReturn: false });
+              Alert.alert("Request Sent", "Your return request has been sent to the owner.");
+            } catch (error) {
+              console.error("Failed to request return", error);
+              Alert.alert("Error", "Failed to send return request");
+            }
           } 
         }
       ]

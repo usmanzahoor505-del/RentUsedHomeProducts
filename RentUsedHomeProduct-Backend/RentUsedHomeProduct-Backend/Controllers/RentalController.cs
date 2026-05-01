@@ -263,9 +263,9 @@ namespace RentUsedHomeProduct_Backend.Controllers
             if (rental == null)
                 return NotFound(new { message = "Rental not found!" });
 
-            var validStatuses = new[] { "Pending", "Active", "Completed", "Cancelled" };
+            var validStatuses = new[] { "Pending", "Active", "Awaiting_Return", "Completed", "Cancelled" };
             if (!validStatuses.Contains(status))
-                return BadRequest(new { message = "Invalid status! Valid: Pending, Active, Completed, Cancelled" });
+                return BadRequest(new { message = "Invalid status! Valid: Pending, Active, Awaiting_Return, Completed, Cancelled" });
 
             rental.Status = status;
             await _context.SaveChangesAsync();
