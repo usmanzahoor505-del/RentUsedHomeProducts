@@ -25,10 +25,10 @@ namespace RentUsedHomeProduct_Backend.Models
         public DateTime EndDate { get; set; }
 
         [Column("product_review")]
-        public string ProductReview { get; set; }
+        public string? ProductReview { get; set; }
 
         [Column("renter_review")]
-        public string RenterReview { get; set; }
+        public string? RenterReview { get; set; }
 
         [Column("product_rating")]
         public double ProductRating { get; set; }
@@ -47,12 +47,12 @@ namespace RentUsedHomeProduct_Backend.Models
 
         // Navigation Properties
         [ForeignKey("ProductId")]
-        public Product Product { get; set; }
+        public Product? Product { get; set; }
 
         [ForeignKey("OwnerId")]
-        public User Owner { get; set; }
+        public User? Owner { get; set; }
 
         [ForeignKey("RenterId")]
-        public User Renter { get; set; }
+        public User? Renter { get; set; }
     }
 }

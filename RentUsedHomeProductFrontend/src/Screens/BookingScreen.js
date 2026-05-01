@@ -35,7 +35,7 @@ export default function BookingScreen() {
   const [numberOfDays, setNumberOfDays] = useState(contextNumberOfDays || 1);
   const [open, setOpen] = useState(false);
   
-  const { user } = useUser();
+  const { userId } = useUser();
   const [product, setProduct] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,17 +93,21 @@ export default function BookingScreen() {
   };
 
   const handleBookingSubmit = async () => {
-    if (!product || !user) return;
+    if (!product || !userId) {
+      console.log("Missing product or userId:", { product: !!product, userId: !!userId });
+      return;
+    }
     try {
       setIsSubmitting(true);
       const payload = {
         ProductId: product.productId,
         OwnerId: product.owner.userId,
-        RenterId: user.userId,
+        RenterId: userId,
         StartDate: format(startDate, 'yyyy-MM-dd'),
         EndDate: format(getCalculatedEndDate(), 'yyyy-MM-dd')
       };
       
+      console.log("Sending Payload:", payload);
       const res = await axios.post(`${API_URL}/rental`, payload);
       navigate("/booking-confirmation/" + res.data.rentalId);
     } catch (error) {
