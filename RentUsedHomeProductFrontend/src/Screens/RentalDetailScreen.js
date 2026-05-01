@@ -42,7 +42,7 @@ export default function RentalDetailScreen() {
         startDate: start.toLocaleDateString(),
         endDate: end.toLocaleDateString(),
         numberOfDays: diffDays,
-        pricePerDay: Math.round((item.totalAmount || 0) / diffDays),
+        pricePerDay: item.product?.pricePerDay || 0,
         ownerName: item.owner?.username,
         ownerRating: item.ownerRating || 0,
         canReturn: item.status === "Active" || item.status === "active"
