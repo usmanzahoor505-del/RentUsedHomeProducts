@@ -330,7 +330,7 @@ namespace RentUsedHomeProduct_Backend.Controllers
             if (rental == null)
                 return NotFound(new { message = "Rental not found!" });
 
-            if (rental.Status != "Active" && rental.Status != "ReturnRequested")
+            if (rental.Status != "Active" && rental.Status != "ReturnRequested" && rental.Status != "Awaiting_Return")
                 return BadRequest(new { message = "Only active or return-requested rentals can be confirmed!" });
 
             // Save Owner's rating for the renter/experience

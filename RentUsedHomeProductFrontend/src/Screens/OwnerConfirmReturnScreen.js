@@ -22,6 +22,8 @@ export default function OwnerConfirmReturnScreen() {
   const navigate = useNavigate();
   const { id } = useParams();
 
+  const [rental, setRental] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [customerRating, setCustomerRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
   const [condition, setCondition] = useState(8);
@@ -29,21 +31,23 @@ export default function OwnerConfirmReturnScreen() {
   const [uploadedPhotos, setUploadedPhotos] = useState([]);
   const [notes, setNotes] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
-  
 
-  const customerReview = {
-    ownerRating: 5,
-    productRating: 4,
-    photos: [
-      "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=200&h=200&fit=crop",
-      "https://images.unsplash.com/photo-1593640408182-31c70c8268f5?w=200&h=200&fit=crop",
-    ],
-    comment: "Great rental experience! The product worked perfectly and the owner was very helpful.",
-  };
-
+  React.useEffect(() => {
+    const fetchRentalData = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/rental/${id}`);
+        setRental(res.data);
+      } catch (error) {
+        console.error("Failed to fetch rental", error);
+        Alert.alert("Error", "Could not load rental details.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    if (id) fetchRentalData();
+  }, [id]);
 
   const originalCondition = 9;
-
 
   const handlePhotoUpload = () => {
     const options = {
@@ -83,6 +87,7 @@ export default function OwnerConfirmReturnScreen() {
       });
       setIsSubmitted(true);
     } catch (error) {
+      console.error("Confirm Return Error:", error);
       Alert.alert("Error", "Failed to confirm return.");
     }
   };
@@ -105,6 +110,14 @@ export default function OwnerConfirmReturnScreen() {
       ))}
     </View>
   );
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#9333EA" />
+      </View>
+    );
+  }
 
   if (isSubmitted) {
     return (
@@ -145,12 +158,12 @@ export default function OwnerConfirmReturnScreen() {
           <Text style={styles.cardTitle}>Item Summary</Text>
           <View style={styles.itemSummaryRow}>
             <Image 
-              source={{ uri: "https://images.unsplash.com/photo-1640955014216-75201056c829?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400&h=300" }} 
+              source={{ uri: rental?.product?.primaryImage || "https://images.unsplash.com/photo-1640955014216-75201056c829?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400&h=300" }} 
               style={styles.summaryImg} 
             />
             <View>
-              <Text style={styles.summaryName}>Gaming Laptop</Text>
-              <Text style={styles.summaryRenter}>Returned by Ahmed Khan</Text>
+              <Text style={styles.summaryName}>{rental?.product?.title || "Product"}</Text>
+              <Text style={styles.summaryRenter}>Returned by {rental?.renter?.username || "Customer"}</Text>
             </View>
           </View>
         </View>
