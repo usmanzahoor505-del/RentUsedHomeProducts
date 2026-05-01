@@ -9,6 +9,7 @@ import {
   TextInput,
   Image,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, Star, Upload, CheckCircle, X, AlertCircle } from "lucide-react-native";
