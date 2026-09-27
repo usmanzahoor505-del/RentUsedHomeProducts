@@ -66,12 +66,21 @@ namespace RentUsedHomeProduct_Backend.Controllers
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
 
+                string token = GenerateJwtToken(user);
+
                 return Ok(new { 
                     message = "User registered successfully!", 
+                    token = token,
                     userId = user.UserId,
+                    username = user.Username,
+                    email = user.Email,
+                    city = user.City,
+                    phone = user.PhoneNo,
+                    cnic = user.CNIC,
                     role = user.Role,
                     vehicleType = user.VehicleType,
-                    vehiclePlate = user.VehiclePlate
+                    vehiclePlate = user.VehiclePlate,
+                    isOnline = user.IsOnline
                 });
             }
             catch (Exception ex)

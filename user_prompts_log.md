@@ -939,7 +939,38 @@ This document records all prompts and instructions provided by the user in this 
   3. Re-established ADB reverse port forwarding: `adb reverse tcp:5257 tcp:5257` and `adb reverse tcp:5255 tcp:5255`.
   4. Updated database to support both `ismail@12` and `ismal@12` with password `Password123!` (verified successful login via API).
   5. Created `C:\Users\ABUZAR\Desktop\adb_reverse_ports.bat` on the Desktop so users can restore USB reverse port forwarding with a single click after replugging their phone.
-  6. Verified backend server is running actively on port 5257 with instant query execution.
+
+---
+
+### Prompt 51
+- **Timestamp**: 2026-09-27T22:35:19+05:00
+- **Prompt**:
+  ```text
+  check the UI of app that run the app and check all screens all broken UI correct this and also the courier will login also sign up as user same and all work flow check and not add switch to rider mode is not correct so solve this all issue
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. Permanently removed the "Switch to Courier / Rider Mode" option from `ProfileScreen.js` menuItems:
+     - Verified user intent: Customers must not dynamically switch roles to rider mode from their account profile. Role is determined at registration or login.
+     - Removed `Truck` icon import from `ProfileScreen.js`.
+     - In `CourierHomeScreen.js`, replaced the `switchModeBtn` with a clean rider vehicle badge (`riderVehicleBadge`) displaying vehicle type and license plate, ensuring courier accounts stay dedicated to delivery workflows without accidental state corruption.
+  3. Unified and enhanced Courier and Customer Sign-Up & Login:
+     - Updated `RentUsedHomeProduct-Backend/Controllers/UserController.cs` in the `Register` endpoint to generate and return a signed JWT token along with full profile details (`userId`, `username`, `email`, `city`, `phone`, `cnic`, `role`, `vehicleType`, `vehiclePlate`, `isOnline`).
+     - Both Couriers and Customers now get immediately authenticated with a valid token upon registration and automatically routed to their dedicated dashboard (`/courier-home` for Delivery Riders, `/home` for Customers).
+     - Verified Courier registration and login endpoints with live automated REST tests returning valid JWT tokens and role properties.
+  4. Brand theme & UI audit across all screens:
+     - Fixed legacy blue `#2563EB` gradients and accents in `ProfileScreen.js` (header gradient converted to pure purple `["#9333EA", "#7C3AED"]`, avatar edit icon, location icon, and stat indicators).
+     - Fixed `PaymentScreen.js` by converting all `#2563EB` buttons, active borders, icons, and shadow colors to brand purple (`#9333EA`, `#F3E8FF`, `#E9D5FF`).
+     - Fixed `RatingScreen.js` header banner gradient to purple `["#9333EA", "#7C3AED"]` and submit buttons to `#9333EA`.
+     - Fixed `PostRentalRatingScreen.js` owner section gradient and rating star accents to purple `#9333EA`.
+     - Fixed `VendorProfileScreen.js` renter star rating card to purple `#9333EA` / `#F3E8FF`.
+  5. Recompiled JavaScript bundle with Metro (`index.android.bundle`).
+  6. Rebuilt Android APK with Gradle (`./gradlew assembleDebug` - BUILD SUCCESSFUL in 22s).
+  7. Installed updated APK to connected device `HMGEAENV5HMBNNEM`.
+  8. Launched app and verified live on device via screen captures:
+     - Verified Home screen loads all 6 Rawalpindi Pakistani products with fractional star ratings, photos, and prices.
+     - Verified Profile screen displays brand purple gradient and confirms "Switch to Courier / Rider Mode" is completely removed from the menu.
+
 
 
 

@@ -135,7 +135,7 @@ export default function PaymentScreen() {
                 style={[styles.methodBtn, isSelected && styles.methodBtnActive]}
               >
                 <View style={[styles.iconBox, isSelected && styles.iconBoxActive]}>
-                  <Icon size={24} color={isSelected ? "#2563EB" : "#6B7280"} />
+                  <Icon size={24} color={isSelected ? "#9333EA" : "#6B7280"} />
                 </View>
                 <View style={styles.methodInfo}>
                   <Text style={styles.methodName}>{method.name}</Text>
@@ -214,7 +214,7 @@ export default function PaymentScreen() {
 
         {/* Terms Alert */}
         <View style={styles.termsBox}>
-          <AlertCircle size={20} color="#2563EB" style={{ marginRight: 12 }} />
+          <AlertCircle size={20} color="#9333EA" style={{ marginRight: 12 }} />
           <View style={{ flex: 1 }}>
             <Text style={styles.termsText}>
               By confirming this payment, you agree to Easy Rent's terms. The amount will be held until the product is returned in good condition.
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#2563EB",
+    color: "#9333EA",
   },
   methodBtn: {
     flexDirection: "row",
@@ -345,8 +345,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   methodBtnActive: {
-    borderColor: "#2563EB",
-    backgroundColor: "#EFF6FF",
+    borderColor: "#9333EA",
+    backgroundColor: "#F3E8FF",
   },
   iconBox: {
     width: 48,
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   iconBoxActive: {
-    backgroundColor: "#DBEAFE",
+    backgroundColor: "#E9D5FF",
   },
   methodInfo: {
     flex: 1,
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#2563EB",
+    backgroundColor: "#9333EA",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -425,15 +425,15 @@ const styles = StyleSheet.create({
   },
   termsBox: {
     flexDirection: "row",
-    backgroundColor: "#EFF6FF",
+    backgroundColor: "#F3E8FF",
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: "#DBEAFE",
+    borderColor: "#E9D5FF",
   },
   termsText: {
     fontSize: 12,
-    color: "#1E40AF",
+    color: "#7E22CE",
     lineHeight: 18,
   },
   footer: {
@@ -447,13 +447,13 @@ const styles = StyleSheet.create({
     borderTopColor: "#F3F4F6",
   },
   payBtn: {
-    backgroundColor: "#2563EB",
+    backgroundColor: "#9333EA",
     height: 60,
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
     elevation: 4,
-    shadowColor: "#2563EB",
+    shadowColor: "#9333EA",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,

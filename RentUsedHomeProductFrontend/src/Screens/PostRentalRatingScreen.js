@@ -133,10 +133,10 @@ export default function PostRentalRatingScreen() {
         </LinearGradient>
 
         {/* OWNER SECTION */}
-        <LinearGradient colors={["#BFDBFE", "#60A5FA"]} style={styles.sectionWrapper}>
+        <LinearGradient colors={["#E9D5FF", "#C084FC"]} style={styles.sectionWrapper}>
           <View style={styles.sectionInner}>
             <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIcon, { backgroundColor: "#2563EB" }]}>
+              <View style={[styles.sectionIcon, { backgroundColor: "#9333EA" }]}>
                 <Package size={20} color="#FFFFFF" />
               </View>
               <View>
@@ -147,8 +147,8 @@ export default function PostRentalRatingScreen() {
 
             <View style={styles.ratingBox}>
               <Text style={styles.ratingQuestion}>How was the customer's behavior?</Text>
-              <StarRating rating={customerBehaviorRating} onRate={setCustomerBehaviorRating} color="#2563EB" />
-              <Text style={[styles.ratingLabel, { color: "#2563EB" }]}>{getRatingLabel(customerBehaviorRating)}</Text>
+              <StarRating rating={customerBehaviorRating} onRate={setCustomerBehaviorRating} color="#9333EA" />
+              <Text style={[styles.ratingLabel, { color: "#9333EA" }]}>{getRatingLabel(customerBehaviorRating)}</Text>
             </View>
 
             {/* Condition Info */}
@@ -164,8 +164,8 @@ export default function PostRentalRatingScreen() {
 
             <View style={styles.ratingBox}>
               <Text style={styles.ratingQuestion}>Return condition vs. original state</Text>
-              <StarRating rating={returnConditionRating} onRate={setReturnConditionRating} color="#2563EB" />
-              <Text style={[styles.ratingLabel, { color: "#2563EB" }]}>{getRatingLabel(returnConditionRating)}</Text>
+              <StarRating rating={returnConditionRating} onRate={setReturnConditionRating} color="#9333EA" />
+              <Text style={[styles.ratingLabel, { color: "#9333EA" }]}>{getRatingLabel(returnConditionRating)}</Text>
             </View>
 
             {/* Warning Box */}
@@ -355,12 +355,12 @@ const styles = StyleSheet.create({
   conditionLabel: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#1E40AF",
+    color: "#6B21A8",
   },
   conditionValue: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#2563EB",
+    color: "#9333EA",
   },
   progressBarBg: {
     height: 8,
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: "100%",
-    backgroundColor: "#2563EB",
+    backgroundColor: "#9333EA",
     borderRadius: 4,
   },
   warningBox: {

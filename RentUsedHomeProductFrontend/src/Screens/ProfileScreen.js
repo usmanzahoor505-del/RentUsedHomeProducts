@@ -25,7 +25,6 @@ import {
   Shield,
   Heart,
   Bell,
-  Truck,
 } from "lucide-react-native";
 import { useUser } from "../context/UserContext";
 import axios from "axios";
@@ -58,16 +57,15 @@ export default function ProfileScreen() {
   };
 
   const userStats = [
-    { label: "Listings", value: profile?.listingsCount || "0", icon: Package, color: "#2563EB" },
+    { label: "Listings", value: profile?.listingsCount || "0", icon: Package, color: "#9333EA" },
     { label: "As Owner", value: profile?.avgOwnerRating?.toFixed(1) || "0.0", icon: Star, color: "#EAB308" },
     { label: "As Renter", value: profile?.avgRenterRating?.toFixed(1) || "0.0", icon: Star, color: "#EAB308" },
     { label: "Reviews", value: (profile?.reviewsAsOwner?.length || 0) + (profile?.reviewsAsRenter?.length || 0), icon: Package, color: "#16A34A" },
   ];
 
   const menuItems = [
-    { icon: Package, label: "My Listings", path: "/my-adds", color: "#2563EB" },
+    { icon: Package, label: "My Listings", path: "/my-adds", color: "#9333EA" },
     { icon: Package, label: "My Rentals", path: "/my-rentals", color: "#9333EA" },
-    { icon: Truck, label: "Switch to Courier / Rider Mode", path: "/courier-home", color: "#10B981" },
     { icon: Heart, label: "My Wishlist", path: "/wishlist", color: "#DC2626" },
     { icon: Bell, label: "Notifications", path: "/notifications", color: "#7C3AED" },
     { icon: Star, label: "My Reviews", path: "/vendor/" + userId, color: "#CA8A04" },
@@ -102,7 +100,7 @@ export default function ProfileScreen() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header with Gradient */}
       <LinearGradient
-        colors={["#2563EB", "#9333EA"]}
+        colors={["#9333EA", "#7C3AED"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
@@ -116,13 +114,13 @@ export default function ProfileScreen() {
                 style={styles.avatar}
               />
               <TouchableOpacity style={styles.editAvatarBtn}>
-                <User size={14} color="#2563EB" />
+                <User size={14} color="#9333EA" />
               </TouchableOpacity>
             </View>
             <View style={styles.nameContainer}>
               <Text style={styles.userName}>{userData.username}</Text>
               <View style={styles.locationRow}>
-                <MapPin size={14} color="#DBEAFE" />
+                <MapPin size={14} color="#E9D5FF" />
                 <Text style={styles.userLocation}>{userData.city}</Text>
               </View>
               <View style={styles.verifiedBadge}>
@@ -265,7 +263,7 @@ const styles = StyleSheet.create({
   },
   userLocation: {
     fontSize: 14,
-    color: "#DBEAFE",
+    color: "#E9D5FF",
     marginLeft: 4,
   },
   verifiedBadge: {

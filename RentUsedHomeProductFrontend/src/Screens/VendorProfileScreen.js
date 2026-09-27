@@ -97,8 +97,8 @@ export default function VendorProfileScreen() {
               <Text style={styles.statValue}>{vendorProfile.avgOwnerRating?.toFixed(1) || 0}</Text>
               <Text style={styles.statLabel}>As Owner</Text>
             </View>
-            <View style={[styles.statItem, { backgroundColor: "#EFF6FF" }]}>
-              <Star size={16} color="#2563EB" fill="#2563EB" />
+            <View style={[styles.statItem, { backgroundColor: "#F3E8FF" }]}>
+              <Star size={16} color="#9333EA" fill="#9333EA" />
               <Text style={styles.statValue}>{vendorProfile.avgRenterRating?.toFixed(1) || 0}</Text>
               <Text style={styles.statLabel}>As Renter</Text>
             </View>

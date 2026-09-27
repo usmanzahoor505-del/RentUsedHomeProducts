@@ -142,11 +142,6 @@ export default function CourierHomeScreen() {
     }
   };
 
-  const switchToCustomerMode = () => {
-    setUserRole("Customer");
-    navigate("/home");
-  };
-
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to log out?", [
       { text: "Cancel", style: "cancel" },
@@ -257,10 +252,10 @@ export default function CourierHomeScreen() {
             />
           </View>
 
-          <TouchableOpacity style={styles.switchModeBtn} onPress={switchToCustomerMode}>
-            <User size={14} color="#9333EA" style={{ marginRight: 4 }} />
-            <Text style={styles.switchModeText}>Customer Mode</Text>
-          </TouchableOpacity>
+          <View style={styles.riderVehicleBadge}>
+            <Truck size={14} color="#9333EA" style={{ marginRight: 4 }} />
+            <Text style={styles.riderVehicleText}>{vehicleType || "Motorcycle"}{vehiclePlate ? ` • ${vehiclePlate}` : ""}</Text>
+          </View>
         </View>
       </View>
 
@@ -542,7 +537,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#374151",
   },
-  switchModeBtn: {
+  riderVehicleBadge: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F3E8FF",
@@ -550,7 +545,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 14,
   },
-  switchModeText: {
+  riderVehicleText: {
     fontSize: 12,
     fontWeight: "700",
     color: "#9333EA",

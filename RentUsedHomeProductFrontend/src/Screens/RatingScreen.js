@@ -115,7 +115,7 @@ export default function RatingScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Trust Score Banner */}
         <LinearGradient
-          colors={["#2563EB", "#9333EA"]}
+          colors={["#9333EA", "#7C3AED"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.trustBanner}
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
   submitBtn: {
-    backgroundColor: "#2563EB",
+    backgroundColor: "#9333EA",
     height: 56,
     borderRadius: 16,
     justifyContent: "center",
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F9FAFB",
   },
   sidebarItemActive: {
-    backgroundColor: "#2563EB",
+    backgroundColor: "#9333EA",
   },
   sidebarItemName: {
     fontSize: 15,
