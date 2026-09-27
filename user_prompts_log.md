@@ -878,6 +878,26 @@ This document records all prompts and instructions provided by the user in this 
   6. Created `C:\Users\ABUZAR\Desktop\stop_backend.bat` for easy 1-click stopping of the server.
   7. Restarted backend cleanly on `http://0.0.0.0:5257` and verified all endpoints responsive.
 
+---
+
+### Prompt 48
+- **Timestamp**: 2026-09-27T21:27:06+05:00
+- **Prompt**:
+  ```text
+  C:\Program Files\dotnet\sdk\10.0.202\Microsoft.Common.CurrentVersion.targets(5395,5): error MSB3027: Could not copy "C:\Users\ABUZAR\Desktop\RentUsedProducts\RentUsedHomeProduct-Backend\RentUsedHomeProduct-Backend\obj\Debug\net8.0\apphost.exe" to "bin\Debug\net8.0\RentUsedHomeProduct-Backend.exe". Exceeded retry count of 10. Failed. The file is locked by: "RentUsedHomeProduct-Backend (23784)"
+  C:\Program Files\dotnet\sdk\10.0.202\Microsoft.Common.CurrentVersion.targets(5395,5): error MSB3021: Unable to copy file "C:\Users\ABUZAR\Desktop\RentUsedProducts\RentUsedHomeProduct-Backend\RentUsedHomeProduct-Backend\obj\Debug\net8.0\apphost.exe" to "bin\Debug\net8.0\RentUsedHomeProduct-Backend.exe". The process cannot access the file 'C:\Users\ABUZAR\Desktop\RentUsedProducts\RentUsedHomeProduct-Backend\RentUsedHomeProduct-Backend\bin\Debug\net8.0\RentUsedHomeProduct-Backend.exe' becauseit is being used by another process.
+
+  The build failed. Fix the build errors and run again.
+  PS C:\Users\ABUZAR\Desktop\RentUsedProducts\RentUsedHomeProduct-Backend\RentUsedHomeProduct-Backend>
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. Identified that background task `task-5869` was actively running the server on port 5257 under PID 23784, creating a file lock that blocked the user from executing `dotnet run` / `dotnet build` in their interactive PowerShell terminal.
+  3. Terminated `task-5869` and killed PID 23784, releasing the file lock completely.
+  4. Executed `dotnet build` to confirm the compilation succeeds with 0 errors in 2.15s.
+  5. Kept the background task off so the user has full, unobstructed control to run `dotnet run` directly in their terminal without port or file conflicts.
+
+
 
 
 
