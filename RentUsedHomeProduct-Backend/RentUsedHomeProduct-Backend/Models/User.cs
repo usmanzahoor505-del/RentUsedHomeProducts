@@ -31,10 +31,10 @@ namespace RentUsedHomeProduct_Backend.Models
         public string? CNIC { get; set; }
 
         [Column("avg_owner_rating")]
-        public double AvgOwnerRating { get; set; }
+        public double? AvgOwnerRating { get; set; }
 
         [Column("avg_renter_rating")]
-        public double AvgRenterRating { get; set; }
+        public double? AvgRenterRating { get; set; }
 
         [Column("role")]
         public string Role { get; set; } = "Customer";

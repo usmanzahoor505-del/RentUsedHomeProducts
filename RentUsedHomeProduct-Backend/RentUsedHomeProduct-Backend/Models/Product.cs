@@ -46,7 +46,7 @@ namespace RentUsedHomeProduct_Backend.Models
         public double? RadiusKm { get; set; } = 5.0;
 
         [Column("avg_rating")]
-        public double AvgRating { get; set; }
+        public double? AvgRating { get; set; }
 
         // Navigation Properties
         [ForeignKey("UserId")]

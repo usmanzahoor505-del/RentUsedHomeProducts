@@ -121,3 +121,23 @@ BEGIN
     END
 END
 
+-- STEP 5: Seed 3 Rawalpindi Accounts (Usman, Suleman, Shehryar) and 5 Pakistani Home Used Products
+IF NOT EXISTS (SELECT 1 FROM Users WHERE email = 'usman@rentused.pk')
+BEGIN
+    INSERT INTO Users (username, email, Password, phone_no, city, cnic, role, is_online)
+    VALUES ('Usman Zahoor', 'usman@rentused.pk', '$2a$11$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '0300-5551234', 'Rawalpindi', '37405-1234567-1', 'Customer', 0);
+END
+
+IF NOT EXISTS (SELECT 1 FROM Users WHERE email = 'suleman@rentused.pk')
+BEGIN
+    INSERT INTO Users (username, email, Password, phone_no, city, cnic, role, is_online)
+    VALUES ('Suleman Khan', 'suleman@rentused.pk', '$2a$11$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '0312-9876543', 'Rawalpindi', '37405-7654321-2', 'Customer', 0);
+END
+
+IF NOT EXISTS (SELECT 1 FROM Users WHERE email = 'shehryar@rentused.pk')
+BEGIN
+    INSERT INTO Users (username, email, Password, phone_no, city, cnic, role, vehicle_type, vehicle_plate, is_online, current_latitude, current_longitude, last_location_updated)
+    VALUES ('Shehryar Ali', 'shehryar@rentused.pk', '$2a$11$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '0333-8889900', 'Rawalpindi', '37405-9988776-3', 'Courier', 'Motorcycle', 'RWP-7788', 1, 33.5973, 73.0479, GETDATE());
+END
+
+

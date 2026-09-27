@@ -833,5 +833,32 @@ This document records all prompts and instructions provided by the user in this 
   3. Committed changes with a comprehensive descriptive commit message.
   4. Pushed the project to remote repository `origin/main` (`https://github.com/usmanzahoor505-del/RentUsedHomeProducts.git`).
 
+---
+
+### Prompt 46
+- **Timestamp**: 2026-09-27T21:07:31+05:00
+- **Prompt**:
+  ```text
+  now you add a mock data in sql server the products is home used pakistani and add 2 users of rawalpindi and also add one courier usman,suleman,shehryar in usman id add 5 products of home used pakistani pics add and rating and reviews add of that product go for it also give credentials after
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. Registered 3 distinct accounts in Rawalpindi with BCrypt password encryption:
+     - Usman Zahoor (`usman@rentused.pk` / `Password123!`) - Customer / Product Owner in Rawalpindi.
+     - Suleman Khan (`suleman@rentused.pk` / `Password123!`) - Customer / Renter in Rawalpindi.
+     - Shehryar Ali (`shehryar@rentused.pk` / `Password123!`) - Courier / Delivery Rider in Rawalpindi (Motorcycle, plate `RWP-7788`, active online with GPS coordinates).
+  3. Added 5 authentic Pakistani home-used products owned by Usman in Rawalpindi:
+     - Kenwood Inverter Microwave Oven 30L (Clean Home Used) - Rs. 450/day, 4.8 stars (0.6 km away in Saddar).
+     - Chinyoti Hand-Carved Sheesham Wooden Sofa (3-Seater) - Rs. 1,200/day, 4.8 stars, 2 reviews (Bahria Town Phase 4).
+     - Dawlance Double Door Refrigerator 400L (Frost Free) - Rs. 850/day, 4.5 stars (Satellite Town).
+     - Total Tools Heavy Duty Electric Rotary Hammer Drill Kit - Rs. 500/day, 5.0 stars (Westridge Cantt).
+     - GFC Energy Saver Copper Deluxe Pedestal Fan (24-inch) - Rs. 300/day, 4.8 stars (Peshawar Road).
+  4. Downloaded and attached 5 high-quality, local offline product photos into `wwwroot/uploads/products/` and linked via `Product_Images`.
+  5. Added completed rental history with authentic ratings and detailed Urdu/English Pakistani reviews submitted by Suleman and verified by the platform.
+  6. Inserted an active pending doorstep delivery job (`Deliveries`) linking Usman and Suleman, allowing Shehryar to view the job on his Leaflet radar map and test acceptance, navigation, condition photo inspection, and dual-OTP handovers.
+  7. Fixed model nullability in `Rental.cs`, `User.cs`, and `Product.cs` preventing `SqlNullValueException`.
+  8. Rebuilt backend with 0 errors and tested all endpoints (`/api/users/login`, `/api/products`, `/api/deliveries/available`).
+
+
 
 

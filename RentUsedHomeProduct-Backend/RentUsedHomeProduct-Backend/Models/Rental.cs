@@ -34,13 +34,13 @@ namespace RentUsedHomeProduct_Backend.Models
         public string? OwnerReview { get; set; }
 
         [Column("product_rating")]
-        public double ProductRating { get; set; }
+        public double? ProductRating { get; set; }
 
         [Column("owner_rating")]
-        public double OwnerRating { get; set; }
+        public double? OwnerRating { get; set; }
 
         [Column("renter_rating")]
-        public double RenterRating { get; set; }
+        public double? RenterRating { get; set; }
 
         [Column("total_amount")]
         public decimal TotalAmount { get; set; }
