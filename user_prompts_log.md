@@ -897,6 +897,31 @@ This document records all prompts and instructions provided by the user in this 
   4. Executed `dotnet build` to confirm the compilation succeeds with 0 errors in 2.15s.
   5. Kept the background task off so the user has full, unobstructed control to run `dotnet run` directly in their terminal without port or file conflicts.
 
+---
+
+### Prompt 49
+- **Timestamp**: 2026-09-27T21:33:16+05:00
+- **Prompt**:
+  ```text
+  when i run the frontend in physical device its only load not fetch data from backend just loading solve that thing
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. Identified the root cause of the infinite loading spinner on physical devices:
+     - ADB port reverse for port 5257 was inactive (`adb reverse --list` only showed 8081).
+     - Global Axios calls across `HomeScreen.js`, `AddProductScreen.js`, etc. lacked a timeout (`timeout: 0`), causing calls to unreachable Wi-Fi IPs to hang indefinitely instead of falling back or reaching the `finally` block.
+     - Windows Defender Firewall blocks incoming Wi-Fi connections on port 5257 by default.
+  3. Mapped reverse port forwarding over USB: `adb reverse tcp:5257 tcp:5257` and `adb reverse tcp:5255 tcp:5255`.
+  4. Configured global `axios.defaults` in `src/utils/api.js` with:
+     - Primary URL: `http://localhost:5257/api` (zero-firewall, ultra-fast over USB ADB reverse).
+     - Strict 5-second timeout (`axios.defaults.timeout = 5000`) so loading spinners never hang.
+     - Global response interceptor that automatically retries and switches between USB (`localhost:5257`) and Wi-Fi (`10.109.107.42:5257`) on any network failure.
+  5. Recompiled offline JavaScript bundle (`index.android.bundle`) with Metro.
+  6. Rebuilt Android APK via `./gradlew assembleDebug` (`BUILD SUCCESSFUL in 31s`).
+  7. Installed updated APK directly to connected Xiaomi Redmi 14C (`Performing Streamed Install -> Success`).
+  8. Launched app and captured device screenshot (`screen_after_splash.png`), visually confirming that all 6 Rawalpindi products, reviews, 4.8-star fractional star ratings, prices, and images loaded instantly from the backend with zero loading delay.
+
+
 
 
 
