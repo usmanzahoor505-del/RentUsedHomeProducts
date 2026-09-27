@@ -97,7 +97,11 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.container} 
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Header with Gradient */}
       <LinearGradient
         colors={["#9333EA", "#7C3AED"]}
@@ -204,6 +208,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F9FAFB",
+  },
+  scrollContent: {
+    paddingBottom: 40,
   },
   header: {
     paddingHorizontal: 24,
