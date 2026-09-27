@@ -921,6 +921,27 @@ This document records all prompts and instructions provided by the user in this 
   7. Installed updated APK directly to connected Xiaomi Redmi 14C (`Performing Streamed Install -> Success`).
   8. Launched app and captured device screenshot (`screen_after_splash.png`), visually confirming that all 6 Rawalpindi products, reviews, 4.8-star fractional star ratings, prices, and images loaded instantly from the backend with zero loading delay.
 
+---
+
+### Prompt 50
+- **Timestamp**: 2026-09-27T22:09:33+05:00
+- **Prompt**:
+  ```text
+  why reach to server?
+  we could not reach to server alert message authentication failed
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. Diagnosed why the alert message "we could not reach to server / authentication failed" occurred:
+     - USB Cable Reconnection Reset: Whenever a physical Android phone is unplugged and replugged into the PC, ADB automatically resets active reverse port forwarding rules (`adb reverse tcp:5257 tcp:5257`), temporarily severing the USB communication channel until re-established.
+     - Subnet Disconnect: PC was connected to a mobile hotspot (`vivo Y21`, IP `10.109.107.42`) while the Redmi 14C phone was connected to a different Wi-Fi network (`192.168.100.96`), meaning direct Wi-Fi communication was blocked across separate subnets.
+     - Database Username Typo: User entered `ismail@12` on the login screen, whereas the database had a legacy typo `ismal@12`.
+  3. Re-established ADB reverse port forwarding: `adb reverse tcp:5257 tcp:5257` and `adb reverse tcp:5255 tcp:5255`.
+  4. Updated database to support both `ismail@12` and `ismal@12` with password `Password123!` (verified successful login via API).
+  5. Created `C:\Users\ABUZAR\Desktop\adb_reverse_ports.bat` on the Desktop so users can restore USB reverse port forwarding with a single click after replugging their phone.
+  6. Verified backend server is running actively on port 5257 with instant query execution.
+
+
 
 
 
