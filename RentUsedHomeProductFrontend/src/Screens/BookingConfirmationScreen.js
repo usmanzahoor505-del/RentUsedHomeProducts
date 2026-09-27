@@ -6,15 +6,16 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
+  ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import { useNavigate, useParams } from "react-router";
 import { CheckCircle, Calendar, User, MapPin } from "lucide-react-native";
 import { useDateFilter } from "../context/DateFilterContext";
 import { format } from "date-fns";
 import axios from "axios";
 import { API_URL } from "../utils/api";
-import { ActivityIndicator } from "react-native";
 
 export default function BookingConfirmationScreen() {
   const navigate = useNavigate();

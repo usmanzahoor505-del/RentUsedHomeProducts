@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
   FlatList,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft,
@@ -114,7 +114,7 @@ export default function MyRentalsScreen() {
             style={styles.ownerRow}
             onPress={(e) => {
               e.stopPropagation();
-              navigate("/owner-profile/" + item.owner.userId);
+              navigate("/vendor/" + item.owner.userId);
             }}
           >
             <View style={styles.ownerAvatarBox}>
@@ -149,10 +149,16 @@ export default function MyRentalsScreen() {
           {/* Action indicator */}
           <View style={styles.actionRow}>
             {item.status === "active" ? (
-              <View style={styles.activeAction}>
-                <Text style={styles.activeActionText}>Tap to Return Item</Text>
+              <TouchableOpacity 
+                style={styles.activeAction}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  navigate("/return-process/" + item.id);
+                }}
+              >
+                <Text style={styles.activeActionText}>Return Product</Text>
                 <ChevronRight size={16} color="#9333EA" />
-              </View>
+              </TouchableOpacity>
             ) : item.status === "completed" ? (
               item.productRating > 0 ? (
                 <View style={styles.completedAction}>

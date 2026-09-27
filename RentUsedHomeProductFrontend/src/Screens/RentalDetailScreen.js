@@ -6,11 +6,13 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigate, useParams } from "react-router";
-import { ArrowLeft, Calendar, User, Star, Package, AlertCircle } from "lucide-react-native";
-import { Alert, ActivityIndicator } from "react-native";
+import { ArrowLeft, Calendar, User, Star, Package, AlertCircle, Truck, ChevronRight } from "lucide-react-native";
+
 import axios from "axios";
 import { API_URL, IMAGE_BASE_URL } from "../utils/api";
 
@@ -50,7 +52,11 @@ export default function RentalDetailScreen() {
         pricePerDay: item.product?.pricePerDay || 0,
         ownerName: item.owner?.username || "Owner",
         ownerRating: item.ownerRating || 0,
-        canReturn: item.status?.toLowerCase() === "active"
+        canReturn: item.status?.toLowerCase() === "active",
+        deliveryOption: item.deliveryOption,
+        deliveryFee: item.deliveryFee,
+        hasDelivery: item.deliveryOption === "CourierDelivery" || !!item.delivery,
+        deliveryStatus: item.delivery?.status
       });
     } catch (error) {
       console.error("Fetch Rental Error:", error);
@@ -80,28 +86,7 @@ export default function RentalDetailScreen() {
   }
 
   const handleReturnClick = () => {
-    Alert.alert(
-      "Confirm Return",
-      "Are you sure you want to request a return for this item? The owner will be notified to confirm receipt.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Send Request", 
-          onPress: async () => {
-            try {
-              await axios.put(`${API_URL}/rental/status/${rental.id}`, "Awaiting_Return", {
-                headers: { "Content-Type": "application/json" }
-              });
-              setRental({ ...rental, status: "awaiting_return", canReturn: false });
-              Alert.alert("Request Sent", "Your return request has been sent to the owner.");
-            } catch (error) {
-              console.error("Failed to request return", error);
-              Alert.alert("Error", "Failed to send return request");
-            }
-          } 
-        }
-      ]
-    );
+    navigate(`/return-process/${rental.id}`);
   };
 
   const getStatusStyle = (status) => {
@@ -219,6 +204,18 @@ export default function RentalDetailScreen() {
           </View>
         )}
 
+        {rental.status === "awaiting_return" && (
+          <View style={[styles.alertBanner, { backgroundColor: "#FEF9C3", borderColor: "#FDE047" }]}>
+            <View style={styles.alertHeader}>
+              <AlertCircle size={20} color="#CA8A04" style={{ marginRight: 10 }} />
+              <Text style={[styles.alertTitle, { color: "#854D0E" }]}>Awaiting Owner Confirmation</Text>
+            </View>
+            <Text style={[styles.alertDesc, { color: "#713F12" }]}>
+              You have submitted a return request for this item. The owner will review the item condition and confirm the return.
+            </Text>
+          </View>
+        )}
+
         {rental.status === "completed" && (
           <View style={styles.completedBanner}>
             <Package size={40} color="#16A34A" style={{ marginBottom: 10 }} />
@@ -229,6 +226,24 @@ export default function RentalDetailScreen() {
           </View>
         )}
 
+        {rental.hasDelivery && (
+          <TouchableOpacity
+            style={styles.deliveryTrackBanner}
+            onPress={() => navigate(`/delivery-tracking/${rental.id}`)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.deliveryTrackIconBox}>
+              <Truck size={22} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.deliveryTrackTitle}>Live Courier Tracking</Text>
+              <Text style={styles.deliveryTrackSubtitle}>
+                View real-time map, rider location & handover OTP
+              </Text>
+            </View>
+            <ChevronRight size={20} color="#9333EA" />
+          </TouchableOpacity>
+        )}
 
       </ScrollView>
 
@@ -510,5 +525,38 @@ const styles = StyleSheet.create({
   backBtnText: {
     color: "#FFFFFF",
     fontWeight: "bold",
+  },
+  deliveryTrackBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3E8FF",
+    borderWidth: 1.5,
+    borderColor: "#D8B4FE",
+    borderRadius: 18,
+    padding: 16,
+    marginTop: 16,
+    shadowColor: "#9333EA",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  deliveryTrackIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#9333EA",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deliveryTrackTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#7C3AED",
+  },
+  deliveryTrackSubtitle: {
+    fontSize: 12,
+    color: "#6B21A8",
+    marginTop: 2,
   },
 });

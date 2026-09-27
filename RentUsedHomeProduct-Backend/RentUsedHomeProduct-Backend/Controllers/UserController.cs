@@ -55,6 +55,10 @@ namespace RentUsedHomeProduct_Backend.Controllers
                     City = dto.City,
                     PhoneNo = dto.PhoneNo,
                     CNIC = dto.CNIC,
+                    Role = string.IsNullOrWhiteSpace(dto.Role) ? "Customer" : dto.Role,
+                    VehicleType = dto.VehicleType,
+                    VehiclePlate = dto.VehiclePlate,
+                    IsOnline = (dto.Role == "Courier"),
                     AvgOwnerRating = 0,
                     AvgRenterRating = 0
                 };
@@ -62,7 +66,13 @@ namespace RentUsedHomeProduct_Backend.Controllers
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
 
-                return Ok(new { message = "User registered successfully!", userId = user.UserId });
+                return Ok(new { 
+                    message = "User registered successfully!", 
+                    userId = user.UserId,
+                    role = user.Role,
+                    vehicleType = user.VehicleType,
+                    vehiclePlate = user.VehiclePlate
+                });
             }
             catch (Exception ex)
             {
@@ -121,7 +131,11 @@ namespace RentUsedHomeProduct_Backend.Controllers
                     email = user.Email,
                     city = user.City,
                     phone = user.PhoneNo,
-                    cnic = user.CNIC
+                    cnic = user.CNIC,
+                    role = user.Role ?? "Customer",
+                    vehicleType = user.VehicleType,
+                    vehiclePlate = user.VehiclePlate,
+                    isOnline = user.IsOnline
                 });
             }
             catch (Exception ex)
@@ -181,6 +195,45 @@ namespace RentUsedHomeProduct_Backend.Controllers
                 return NotFound("User not found!");
 
             return Ok(user);
+        }
+
+        // =====================
+        // UPDATE COURIER STATUS (Online/Offline)
+        // PUT: api/users/{id}/courier-status
+        // =====================
+        [HttpPut("{id}/courier-status")]
+        public async Task<IActionResult> UpdateCourierStatus(int id, [FromBody] CourierStatusDto dto)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null) return NotFound(new { message = "User not found!" });
+
+            user.IsOnline = dto.IsOnline;
+            if (dto.Latitude.HasValue && dto.Longitude.HasValue)
+            {
+                user.CurrentLatitude = dto.Latitude.Value;
+                user.CurrentLongitude = dto.Longitude.Value;
+                user.LastLocationUpdated = DateTime.UtcNow;
+            }
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Courier status updated", isOnline = user.IsOnline });
+        }
+
+        // =====================
+        // UPDATE COURIER GPS LOCATION
+        // PUT: api/users/{id}/location
+        // =====================
+        [HttpPut("{id}/location")]
+        public async Task<IActionResult> UpdateCourierLocation(int id, [FromBody] UpdateCourierLocationDto dto)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null) return NotFound(new { message = "User not found!" });
+
+            user.CurrentLatitude = dto.Latitude;
+            user.CurrentLongitude = dto.Longitude;
+            user.LastLocationUpdated = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Courier location updated successfully" });
         }
 
         // =====================

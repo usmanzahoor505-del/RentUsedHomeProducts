@@ -5,18 +5,18 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
   TextInput,
   Image,
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, Star, Upload, CheckCircle, X, AlertCircle } from "lucide-react-native";
 import { launchImageLibrary } from "react-native-image-picker";
 import Slider from "@react-native-community/slider";
 import axios from "axios";
-import { API_URL } from "../utils/api";
+import { API_URL, IMAGE_BASE_URL } from "../utils/api";
 
 
 export default function OwnerConfirmReturnScreen() {
@@ -159,7 +159,7 @@ export default function OwnerConfirmReturnScreen() {
           <Text style={styles.cardTitle}>Item Summary</Text>
           <View style={styles.itemSummaryRow}>
             <Image 
-              source={{ uri: rental?.product?.primaryImage || "https://images.unsplash.com/photo-1640955014216-75201056c829?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400&h=300" }} 
+              source={{ uri: (rental?.product?.primaryImage && rental.product.primaryImage.startsWith('/') ? IMAGE_BASE_URL + rental.product.primaryImage : rental?.product?.primaryImage) || "https://images.unsplash.com/photo-1640955014216-75201056c829?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400&h=300" }} 
               style={styles.summaryImg} 
             />
             <View>

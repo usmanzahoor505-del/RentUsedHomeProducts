@@ -35,6 +35,27 @@ namespace RentUsedHomeProduct_Backend.Models
 
         [Column("avg_renter_rating")]
         public double AvgRenterRating { get; set; }
+
+        [Column("role")]
+        public string Role { get; set; } = "Customer";
+
+        [Column("vehicle_type")]
+        public string? VehicleType { get; set; }
+
+        [Column("vehicle_plate")]
+        public string? VehiclePlate { get; set; }
+
+        [Column("is_online")]
+        public bool IsOnline { get; set; } = false;
+
+        [Column("current_latitude")]
+        public double? CurrentLatitude { get; set; }
+
+        [Column("current_longitude")]
+        public double? CurrentLongitude { get; set; }
+
+        [Column("last_location_updated")]
+        public DateTime? LastLocationUpdated { get; set; }
     }
 
 }

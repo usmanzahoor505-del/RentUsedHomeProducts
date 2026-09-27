@@ -8,13 +8,14 @@ import {
   StyleSheet,
   Image,
   Dimensions,
-  SafeAreaView,
   FlatList,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigate } from "react-router";
 import { Search, Star, MapPin, Eye, LogIn } from "lucide-react-native";
 import LinearGradient from "react-native-linear-gradient";
 import { allProducts } from "../data/products";
+import StarRating from "../Components/StarRating";
 
 const { width } = Dimensions.get("window");
 
@@ -37,8 +38,11 @@ export default function GuestModeHomeScreen() {
       <View style={styles.productInfo}>
         <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
         <View style={styles.ratingRow}>
-          <Star size={12} color="#FBBF24" fill="#FBBF24" />
-          <Text style={styles.ratingText}>{item.rating}</Text>
+          <StarRating
+            rating={item.rating || 0}
+            size={12}
+            showValue={true}
+          />
         </View>
         <Text style={styles.productPrice}>Rs. {item.price.toLocaleString()}/day</Text>
         <View style={styles.locationRow}>

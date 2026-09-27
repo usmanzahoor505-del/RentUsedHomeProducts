@@ -3,18 +3,20 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   Animated,
   Dimensions,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigate } from "react-router";
 import { Package } from "lucide-react-native";
 import LinearGradient from "react-native-linear-gradient";
+import { useUser } from "../context/UserContext";
 
 const { width } = Dimensions.get("window");
 
 export default function SplashScreen() {
   const navigate = useNavigate();
+  const { isLoggedIn, userRole } = useUser();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
@@ -35,11 +37,19 @@ export default function SplashScreen() {
 
     // Timer to navigate
     const timer = setTimeout(() => {
-      navigate("/login");
+      if (isLoggedIn) {
+        if (userRole === "Courier") {
+          navigate("/courier-home");
+        } else {
+          navigate("/home");
+        }
+      } else {
+        navigate("/login");
+      }
     }, 2500);
 
     return () => clearTimeout(timer);
-  }, [navigate, fadeAnim, scaleAnim]);
+  }, [navigate, fadeAnim, scaleAnim, isLoggedIn, userRole]);
 
   return (
     <LinearGradient

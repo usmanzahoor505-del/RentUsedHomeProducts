@@ -20,14 +20,21 @@ namespace RentUsedHomeProduct_Backend.Controllers
         }
 
         // =====================
-        // GET ALL PRODUCTS
-        // GET: api/products
+        // GET ALL PRODUCTS (With optional Nearby Location & Radius filter, sorted by Reviews Descending)
+        // GET: api/products?lat=33.5973&lng=73.0479&radiusKm=5
         // =====================
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] double? lat = null, [FromQuery] double? lng = null, [FromQuery] double? radiusKm = null)
         {
-            var products = await _context.Products
-                .Where(p => p.Status == "Available") // Only show available products
+            // Pre-calculate review counts per product from Rentals table
+            var reviewCounts = await _context.Rentals
+                .Where(r => r.ProductRating > 0 || !string.IsNullOrEmpty(r.ProductReview))
+                .GroupBy(r => r.ProductId)
+                .Select(g => new { ProductId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(g => g.ProductId, g => g.Count);
+
+            var productsQuery = await _context.Products
+                .Where(p => p.Status == "Available" || p.Status == "Rented")
                 .Include(p => p.User)
                 .Include(p => p.Category)
                 .Include(p => p.ProductAttributeValues)
@@ -42,6 +49,9 @@ namespace RentUsedHomeProduct_Backend.Controllers
                     p.PricePerDay,
                     p.Status,
                     p.Location,
+                    p.Latitude,
+                    p.Longitude,
+                    p.RadiusKm,
                     p.AvgRating,
                     Owner = new
                     {
@@ -70,7 +80,82 @@ namespace RentUsedHomeProduct_Backend.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(products);
+            if (lat.HasValue && lng.HasValue)
+            {
+                var userLat = lat.Value;
+                var userLng = lng.Value;
+
+                var withDistance = productsQuery.Select(p =>
+                {
+                    double? dist = null;
+                    if (p.Latitude.HasValue && p.Longitude.HasValue)
+                    {
+                        dist = CalculateHaversineDistance(userLat, userLng, p.Latitude.Value, p.Longitude.Value);
+                    }
+                    var revCount = reviewCounts.ContainsKey(p.ProductId) ? reviewCounts[p.ProductId] : 0;
+
+                    return new
+                    {
+                        p.ProductId,
+                        p.Title,
+                        p.Description,
+                        p.Condition,
+                        p.PricePerDay,
+                        p.Status,
+                        p.Location,
+                        p.Latitude,
+                        p.Longitude,
+                        p.RadiusKm,
+                        p.AvgRating,
+                        ReviewCount = revCount,
+                        p.Owner,
+                        p.Category,
+                        p.Attributes,
+                        p.Images,
+                        DistanceKm = dist
+                    };
+                });
+
+                if (radiusKm.HasValue && radiusKm.Value > 0)
+                {
+                    withDistance = withDistance
+                        .Where(p => p.DistanceKm.HasValue && p.DistanceKm.Value <= radiusKm.Value);
+                }
+
+                // Rank by Maximum Reviews in Descending Order, then by Nearest Distance
+                var ranked = withDistance
+                    .OrderByDescending(p => p.ReviewCount)
+                    .ThenBy(p => p.DistanceKm ?? 999999)
+                    .ToList();
+
+                return Ok(ranked);
+            }
+
+            // When no lat/lng provided: Sort by Maximum Reviews Descending
+            var sortedAll = productsQuery.Select(p => new
+            {
+                p.ProductId,
+                p.Title,
+                p.Description,
+                p.Condition,
+                p.PricePerDay,
+                p.Status,
+                p.Location,
+                p.Latitude,
+                p.Longitude,
+                p.RadiusKm,
+                p.AvgRating,
+                ReviewCount = reviewCounts.ContainsKey(p.ProductId) ? reviewCounts[p.ProductId] : 0,
+                p.Owner,
+                p.Category,
+                p.Attributes,
+                p.Images,
+                DistanceKm = (double?)null
+            })
+            .OrderByDescending(p => p.ReviewCount)
+            .ToList();
+
+            return Ok(sortedAll);
         }
 
         // =====================
@@ -96,6 +181,9 @@ namespace RentUsedHomeProduct_Backend.Controllers
                     p.PricePerDay,
                     p.Status,
                     p.Location,
+                    p.Latitude,
+                    p.Longitude,
+                    p.RadiusKm,
                     p.AvgRating,
                     Owner = new
                     {
@@ -127,7 +215,42 @@ namespace RentUsedHomeProduct_Backend.Controllers
             if (product == null)
                 return NotFound(new { message = "Product not found!" });
 
-            return Ok(product);
+            var reviewCount = await _context.Rentals
+                .CountAsync(r => r.ProductId == id && (r.ProductRating > 0 || !string.IsNullOrEmpty(r.ProductReview)));
+
+            var reviews = await _context.Rentals
+                .Where(r => r.ProductId == id && (r.ProductRating > 0 || !string.IsNullOrEmpty(r.ProductReview)))
+                .Include(r => r.Renter)
+                .Select(r => new
+                {
+                    r.RentalId,
+                    r.ProductRating,
+                    r.ProductReview,
+                    RenterName = r.Renter != null ? r.Renter.Username : "Verified Renter",
+                    r.EndDate
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                product.ProductId,
+                product.Title,
+                product.Description,
+                product.Condition,
+                product.PricePerDay,
+                product.Status,
+                product.Location,
+                product.Latitude,
+                product.Longitude,
+                product.RadiusKm,
+                product.AvgRating,
+                ReviewCount = reviewCount,
+                Reviews = reviews,
+                product.Owner,
+                product.Category,
+                product.Attributes,
+                product.Images
+            });
         }
 
         // =====================
@@ -156,6 +279,9 @@ namespace RentUsedHomeProduct_Backend.Controllers
                     p.PricePerDay,
                     p.Status,
                     p.Location,
+                    p.Latitude,
+                    p.Longitude,
+                    p.RadiusKm,
                     p.AvgRating,
                     Category = new
                     {
@@ -253,17 +379,42 @@ namespace RentUsedHomeProduct_Backend.Controllers
                 Condition = dto.Condition,
                 PricePerDay = dto.PricePerDay,
                 Status = dto.Status,
-                Location = dto.Location
+                Location = dto.Location,
+                Latitude = dto.Latitude,
+                Longitude = dto.Longitude,
+                RadiusKm = dto.RadiusKm ?? 5.0
             };
 
             if (dto.Attributes != null && dto.Attributes.Any())
             {
-                product.ProductAttributeValues = dto.Attributes.Select(a => new ProductAttributeValue
+                var validAttrIds = await _context.CategoryAttributes.Select(ca => ca.AttributeId).ToListAsync();
+                product.ProductAttributeValues = new List<ProductAttributeValue>();
+
+                foreach (var a in dto.Attributes)
                 {
-                    CategoryAttributeId = a.AttributeId, // Use the actual attribute ID
-                    AttributeName = a.AttributeName,
-                    Value = a.Value
-                }).ToList();
+                    int attrId = a.AttributeId;
+                    if (!validAttrIds.Contains(attrId))
+                    {
+                        // Fallback: match by name and SubCategoryId / CategoryId
+                        var match = await _context.CategoryAttributes
+                            .FirstOrDefaultAsync(ca => ca.Name.ToLower() == a.AttributeName.ToLower() && 
+                                                      (ca.CategoryId == dto.SubCategoryId || ca.CategoryId == dto.CategoryId));
+                        if (match != null)
+                        {
+                            attrId = match.AttributeId;
+                        }
+                    }
+
+                    if (validAttrIds.Contains(attrId))
+                    {
+                        product.ProductAttributeValues.Add(new ProductAttributeValue
+                        {
+                            CategoryAttributeId = attrId,
+                            AttributeName = a.AttributeName ?? "Attribute",
+                            Value = a.Value ?? ""
+                        });
+                    }
+                }
             }
 
             _context.Products.Add(product);
@@ -278,45 +429,87 @@ namespace RentUsedHomeProduct_Backend.Controllers
         // =====================
         [HttpPost("upload-images/{productId}")]
         [DisableRequestSizeLimit]
-        public async Task<IActionResult> UploadImages(int productId, [FromForm] List<IFormFile> images, [FromQuery] bool isPrimary = false)
+        public async Task<IActionResult> UploadImages(int productId, [FromForm] List<IFormFile>? images = null, [FromQuery] bool isPrimary = false)
         {
             var product = await _context.Products.FindAsync(productId);
             if (product == null)
                 return NotFound(new { message = "Product not found!" });
 
-            if (images == null || images.Count == 0)
+            // Collect all uploaded files from both Request.Form.Files and parameter
+            var files = new List<IFormFile>();
+            if (Request.Form.Files.Count > 0)
+            {
+                files.AddRange(Request.Form.Files);
+            }
+            else if (images != null && images.Count > 0)
+            {
+                files.AddRange(images);
+            }
+
+            if (files.Count == 0)
                 return BadRequest(new { message = "No images provided!" });
 
-            // Uploads folder banao
-            var uploadFolder = Path.Combine(_env.WebRootPath ?? "wwwroot", "uploads", "products");
-            Directory.CreateDirectory(uploadFolder);
+            // Resolve web root path reliably
+            var webRoot = !string.IsNullOrEmpty(_env.WebRootPath)
+                ? _env.WebRootPath
+                : Path.Combine(_env.ContentRootPath, "wwwroot");
 
+            var uploadFolder = Path.Combine(webRoot, "uploads", "products");
+            if (!Directory.Exists(uploadFolder))
+            {
+                Directory.CreateDirectory(uploadFolder);
+            }
+
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
             var uploadedImages = new List<object>();
 
-            foreach (var image in images)
-            {
-                // File extension check karo
-                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
-                var extension = Path.GetExtension(image.FileName).ToLower();
-                if (!allowedExtensions.Contains(extension))
-                    return BadRequest(new { message = "Only jpg, jpeg, png, webp allowed!" });
+            // Check if product already has a primary image
+            bool hasPrimary = await _context.ProductImages.AnyAsync(pi => pi.ProductId == productId && pi.IsPrimary == true);
 
-                // Unique filename banao
+            for (int i = 0; i < files.Count; i++)
+            {
+                var image = files[i];
+                if (image.Length == 0) continue;
+
+                var extension = Path.GetExtension(image.FileName)?.ToLower();
+                if (string.IsNullOrEmpty(extension) || !allowedExtensions.Contains(extension))
+                {
+                    // Fallback to Content-Type if FileName lacks extension (common on mobile content:// URIs)
+                    var ctype = image.ContentType?.ToLower();
+                    if (ctype == "image/png")
+                        extension = ".png";
+                    else if (ctype == "image/webp")
+                        extension = ".webp";
+                    else if (ctype == "image/jpeg" || ctype == "image/jpg")
+                        extension = ".jpg";
+                    else if (ctype != null && ctype.StartsWith("image/"))
+                        extension = ".jpg";
+                    else
+                        extension = ".jpg"; // safe default
+                }
+
+                // Create unique filename
                 var fileName = $"{Guid.NewGuid()}{extension}";
                 var filePath = Path.Combine(uploadFolder, fileName);
 
-                // File save karo
                 using (var stream = new FileStream(filePath, FileMode.Create))
                 {
                     await image.CopyToAsync(stream);
                 }
 
-                // Database mein save karo
+                // If product has no primary image, make the first uploaded image primary
+                bool shouldBePrimary = isPrimary;
+                if (!hasPrimary)
+                {
+                    shouldBePrimary = true;
+                    hasPrimary = true; // only set once
+                }
+
                 var productImage = new ProductImage
                 {
                     ProductId = productId,
                     ImageUrl = $"/uploads/products/{fileName}",
-                    IsPrimary = isPrimary
+                    IsPrimary = shouldBePrimary
                 };
 
                 _context.ProductImages.Add(productImage);
@@ -325,8 +518,100 @@ namespace RentUsedHomeProduct_Backend.Controllers
 
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Images uploaded successfully!", images = uploadedImages });
+            return Ok(new { message = "Images uploaded successfully!", count = uploadedImages.Count, images = uploadedImages });
         }
+
+        public class Base64ImagesRequest
+        {
+            public List<string>? Images { get; set; }
+            public bool IsPrimary { get; set; } = false;
+        }
+
+        // =====================
+        // UPLOAD PRODUCT IMAGES (BASE64 JSON)
+        // POST: api/products/upload-base64-images/1
+        // =====================
+        [HttpPost("upload-base64-images/{productId}")]
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> UploadBase64Images(int productId, [FromBody] Base64ImagesRequest request)
+        {
+            var product = await _context.Products.FindAsync(productId);
+            if (product == null)
+                return NotFound(new { message = "Product not found!" });
+
+            if (request?.Images == null || request.Images.Count == 0)
+                return BadRequest(new { message = "No base64 images provided!" });
+
+            var webRoot = !string.IsNullOrEmpty(_env.WebRootPath)
+                ? _env.WebRootPath
+                : Path.Combine(_env.ContentRootPath, "wwwroot");
+
+            var uploadFolder = Path.Combine(webRoot, "uploads", "products");
+            if (!Directory.Exists(uploadFolder))
+            {
+                Directory.CreateDirectory(uploadFolder);
+            }
+
+            var uploadedImages = new List<object>();
+            bool hasPrimary = await _context.ProductImages.AnyAsync(pi => pi.ProductId == productId && pi.IsPrimary == true);
+
+            for (int i = 0; i < request.Images.Count; i++)
+            {
+                var raw = request.Images[i];
+                if (string.IsNullOrWhiteSpace(raw)) continue;
+
+                string extension = ".jpg";
+                string base64Data = raw;
+
+                if (raw.Contains(","))
+                {
+                    var parts = raw.Split(',');
+                    var header = parts[0].ToLower();
+                    base64Data = parts[1];
+
+                    if (header.Contains("image/png")) extension = ".png";
+                    else if (header.Contains("image/webp")) extension = ".webp";
+                    else extension = ".jpg";
+                }
+
+                try
+                {
+                    byte[] imageBytes = Convert.FromBase64String(base64Data);
+                    if (imageBytes.Length == 0) continue;
+
+                    var fileName = $"{Guid.NewGuid()}{extension}";
+                    var filePath = Path.Combine(uploadFolder, fileName);
+
+                    await System.IO.File.WriteAllBytesAsync(filePath, imageBytes);
+
+                    bool shouldBePrimary = request.IsPrimary;
+                    if (!hasPrimary)
+                    {
+                        shouldBePrimary = true;
+                        hasPrimary = true;
+                    }
+
+                    var productImage = new ProductImage
+                    {
+                        ProductId = productId,
+                        ImageUrl = $"/uploads/products/{fileName}",
+                        IsPrimary = shouldBePrimary
+                    };
+
+                    _context.ProductImages.Add(productImage);
+                    uploadedImages.Add(new { productImage.ImageUrl, productImage.IsPrimary });
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error decoding base64 image {i}: {ex.Message}");
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Images uploaded successfully!", count = uploadedImages.Count, images = uploadedImages });
+        }
+
 
         // =====================
         // UPDATE PRODUCT
@@ -346,9 +631,19 @@ namespace RentUsedHomeProduct_Backend.Controllers
             product.Title = dto.Title;
             product.Description = dto.Description;
             product.CategoryId = dto.CategoryId;
+            if (dto.SubCategoryId > 0)
+                product.SubCategoryId = dto.SubCategoryId;
             product.Condition = dto.Condition;
             product.PricePerDay = dto.PricePerDay;
             product.Status = dto.Status;
+            if (!string.IsNullOrEmpty(dto.Location))
+                product.Location = dto.Location;
+            if (dto.Latitude.HasValue)
+                product.Latitude = dto.Latitude;
+            if (dto.Longitude.HasValue)
+                product.Longitude = dto.Longitude;
+            if (dto.RadiusKm.HasValue)
+                product.RadiusKm = dto.RadiusKm;
 
             await _context.SaveChangesAsync();
 
@@ -366,10 +661,22 @@ namespace RentUsedHomeProduct_Backend.Controllers
             if (image == null)
                 return NotFound(new { message = "Image not found!" });
 
-            // File bhi delete karo
-            var filePath = Path.Combine(_env.WebRootPath ?? "wwwroot", image.ImageUrl.TrimStart('/'));
+            var webRoot = !string.IsNullOrEmpty(_env.WebRootPath)
+                ? _env.WebRootPath
+                : Path.Combine(_env.ContentRootPath, "wwwroot");
+
+            var filePath = Path.Combine(webRoot, image.ImageUrl.TrimStart('/'));
             if (System.IO.File.Exists(filePath))
-                System.IO.File.Delete(filePath);
+            {
+                try
+                {
+                    System.IO.File.Delete(filePath);
+                }
+                catch
+                {
+                    // Ignore file delete errors if locked
+                }
+            }
 
             _context.ProductImages.Remove(image);
             await _context.SaveChangesAsync();
@@ -384,14 +691,54 @@ namespace RentUsedHomeProduct_Backend.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var product = await _context.Products.FindAsync(id);
+            var product = await _context.Products
+                .Include(p => p.ProductImages)
+                .Include(p => p.ProductAttributeValues)
+                .FirstOrDefaultAsync(p => p.ProductId == id);
+
             if (product == null)
                 return NotFound(new { message = "Product not found!" });
+
+            if (product.ProductImages != null && product.ProductImages.Any())
+            {
+                var webRoot = !string.IsNullOrEmpty(_env.WebRootPath)
+                    ? _env.WebRootPath
+                    : Path.Combine(_env.ContentRootPath, "wwwroot");
+
+                foreach (var img in product.ProductImages)
+                {
+                    var filePath = Path.Combine(webRoot, img.ImageUrl.TrimStart('/'));
+                    if (System.IO.File.Exists(filePath))
+                    {
+                        try { System.IO.File.Delete(filePath); } catch { }
+                    }
+                }
+                _context.ProductImages.RemoveRange(product.ProductImages);
+            }
+
+            if (product.ProductAttributeValues != null && product.ProductAttributeValues.Any())
+            {
+                _context.Product_Attribute_Values.RemoveRange(product.ProductAttributeValues);
+            }
 
             _context.Products.Remove(product);
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Product deleted successfully!" });
+        }
+
+        private static double CalculateHaversineDistance(double lat1, double lon1, double lat2, double lon2)
+        {
+            const double R = 6371; // Earth's radius in kilometers
+            var dLat = (lat2 - lat1) * Math.PI / 180.0;
+            var dLon = (lon2 - lon1) * Math.PI / 180.0;
+
+            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                    Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0) *
+                    Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+
+            var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+            return Math.Round(R * c, 1);
         }
     }
 }

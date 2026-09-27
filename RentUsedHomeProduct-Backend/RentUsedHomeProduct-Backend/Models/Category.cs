@@ -20,12 +20,16 @@ namespace RentUsedHomeProduct_Backend.Models
 
         // Navigation Properties
         [ForeignKey("ParentId")]
+        [InverseProperty("SubCategories")]
         [System.Text.Json.Serialization.JsonIgnore]
         public Category? ParentCategory { get; set; }
-        public ICollection<Category> SubCategories { get; set; }
 
+        [InverseProperty("ParentCategory")]
+        public ICollection<Category>? SubCategories { get; set; }
+
+        [InverseProperty("Category")]
         [System.Text.Json.Serialization.JsonIgnore]
-        public ICollection<Product> Products { get; set; }
-        public ICollection<CategoryAttribute> CategoryAttributes { get; set; }
+        public ICollection<Product>? Products { get; set; }
+        public ICollection<CategoryAttribute>? CategoryAttributes { get; set; }
     }
 }

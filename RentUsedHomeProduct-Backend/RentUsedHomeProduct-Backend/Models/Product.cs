@@ -36,6 +36,15 @@ namespace RentUsedHomeProduct_Backend.Models
         [Column("location")]
         public string? Location { get; set; }
 
+        [Column("latitude")]
+        public double? Latitude { get; set; }
+
+        [Column("longitude")]
+        public double? Longitude { get; set; }
+
+        [Column("radius_km")]
+        public double? RadiusKm { get; set; } = 5.0;
+
         [Column("avg_rating")]
         public double AvgRating { get; set; }
 
@@ -44,10 +53,11 @@ namespace RentUsedHomeProduct_Backend.Models
         public User? User { get; set; }
 
         [ForeignKey("CategoryId")]
+        [InverseProperty("Products")]
         public Category? Category { get; set; }
 
         [ForeignKey("SubCategoryId")]
-        public CategoryAttribute? SubCategory { get; set; }
+        public Category? SubCategory { get; set; }
 
         public ICollection<ProductAttributeValue>? ProductAttributeValues { get; set; }
 

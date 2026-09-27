@@ -6,12 +6,12 @@ import {
   ScrollView,
   StyleSheet,
   Image,
-  SafeAreaView,
   TextInput,
   Alert,
   Dimensions,
   Modal,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigate } from "react-router";
 import { ArrowLeft, Star, ThumbsUp, Menu, X } from "lucide-react-native";
 import LinearGradient from "react-native-linear-gradient";

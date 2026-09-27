@@ -6,12 +6,13 @@ import {
   ScrollView,
   StyleSheet,
   Image,
-  SafeAreaView,
   FlatList,
   ActivityIndicator,
   Dimensions,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import { useNavigate } from "react-router";
 import { 
   ArrowLeft, Package, Clock, CheckCircle, Star, User, 
@@ -43,48 +44,63 @@ export default function MyAddsScreen() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      if (activeTab === "listings") {
-        const res = await axios.get(`${API_URL}/products/byuser/${userId}`);
-        const mappedListings = (res.data || []).map(item => ({
-          id: item.productId,
-          name: item.title || "Untitled",
-          image: item.images && item.images.length > 0 ? item.images[0].imageUrl : "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80",
-          price: item.pricePerDay || 0,
-          status: item.status || "Available", 
-          rating: item.avgRating || 0,
-          views: item.views || 0,
-          messages: item.messages || 0
-        }));
-        setListings(mappedListings);
-      } else {
-        const res = await axios.get(`${API_URL}/rental/byowner/${userId}`);
-        const mappedRentals = (res.data || []).map(item => {
-          const start = item.startDate ? new Date(item.startDate) : new Date();
-          const end = item.endDate ? new Date(item.endDate) : new Date();
-          const diffDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)) || 1;
-          
-          return {
-            id: item.rentalId,
-            productName: item.product?.title || "Unknown Product",
-            productImage: item.product?.primaryImage || "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80",
-            renterId: item.renter?.userId,
-            renterName: item.renter?.username || "Guest",
-            renterAvgRating: item.renter?.avgRating || 0,
-            renterAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop", 
-            startDate: start.toLocaleDateString(),
-            endDate: end.toLocaleDateString(),
-            numberOfDays: diffDays,
-            totalAmount: item.totalAmount || 0,
-            status: item.status || "Unknown",
-            rating: item.renterRating || 0
-          };
-        });
+      const [listingsRes, rentalsRes] = await Promise.all([
+        axios.get(`${API_URL}/products/byuser/${userId}`).catch((err) => {
+          console.warn("Failed fetching user products:", err?.message);
+          return { data: [] };
+        }),
+        axios.get(`${API_URL}/rental/byowner/${userId}`).catch((err) => {
+          console.warn("Failed fetching owner rentals:", err?.message);
+          return { data: [] };
+        }),
+      ]);
+
+      const mappedListings = (listingsRes.data || []).map((item) => ({
+        id: item.productId,
+        name: item.title || "Untitled",
+        image: item.images && item.images.length > 0 ? item.images[0].imageUrl : "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80",
+        price: item.pricePerDay || 0,
+        status: item.status || "Available", 
+        rating: item.avgRating || 0,
+        views: item.views || 0,
+        messages: item.messages || 0,
+      }));
+      setListings(mappedListings);
+
+      const mappedRentals = (rentalsRes.data || []).map((item) => {
+        const start = item.startDate ? new Date(item.startDate) : new Date();
+        const end = item.endDate ? new Date(item.endDate) : new Date();
+        const diffDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)) || 1;
         
-        setRequests(mappedRentals.filter(r => r.status === "Pending"));
-        setActiveRentals(mappedRentals.filter(r => r.status === "Active"));
-        setReturns(mappedRentals.filter(r => r.status === "Awaiting_Return")); 
-        setHistory(mappedRentals.filter(r => r.status === "Completed" || r.status === "Cancelled"));
-      }
+        return {
+          id: item.rentalId,
+          productName: item.product?.title || "Unknown Product",
+          productImage: item.product?.primaryImage || "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80",
+          renterId: item.renter?.userId,
+          renterName: item.renter?.username || "Guest",
+          renterAvgRating: item.renter?.avgRating || 0,
+          renterAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop", 
+          startDate: start.toLocaleDateString(),
+          endDate: end.toLocaleDateString(),
+          numberOfDays: diffDays,
+          totalAmount: item.totalAmount || 0,
+          status: item.status || "Unknown",
+          rating: item.renterRating || 0,
+        };
+      });
+
+      const isReturn = (status) => {
+        const s = (status || "").toLowerCase();
+        return s === "awaiting_return" || s === "returnrequested" || s === "awaitingreturn" || s.includes("return");
+      };
+
+      setRequests(mappedRentals.filter((r) => (r.status || "").toLowerCase() === "pending"));
+      setActiveRentals(mappedRentals.filter((r) => (r.status || "").toLowerCase() === "active"));
+      setReturns(mappedRentals.filter((r) => isReturn(r.status))); 
+      setHistory(mappedRentals.filter((r) => {
+        const s = (r.status || "").toLowerCase();
+        return s === "completed" || s === "cancelled";
+      }));
     } catch (error) {
       console.error("Failed to fetch dashboard data", error);
     } finally {
@@ -255,26 +271,45 @@ export default function MyAddsScreen() {
     </View>
   );
 
-  const renderReturnRequest = ({ item }) => (
-    <View style={styles.card}>
-      <View style={styles.renterHeader}>
-        <View style={styles.renterAvatarBox}>
-          <RotateCcw size={20} color="#7C3AED" />
+  const isReturnStatus = (status) => {
+    const s = (status || "").toLowerCase();
+    return s === "awaiting_return" || s === "returnrequested" || s === "awaitingreturn" || s.includes("return");
+  };
+
+  const renderReturnRequest = ({ item }) => {
+    let img = item.productImage;
+    if (img && img.startsWith('/')) {
+      img = IMAGE_BASE_URL + img;
+    }
+    return (
+      <View style={styles.card}>
+        <View style={styles.renterHeader}>
+          <Image source={{ uri: img }} style={{ width: 48, height: 48, borderRadius: 8, marginRight: 12, backgroundColor: "#E5E7EB" }} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.renterLabel}>Return Requested by {item.renterName}</Text>
+            <Text style={styles.historyName}>{item.productName}</Text>
+          </View>
         </View>
-        <View>
-          <Text style={styles.renterLabel}>Return Pending</Text>
-          <Text style={styles.historyName}>{item.productName}</Text>
+        <View style={styles.historyBox}>
+          <View style={styles.historyRow}>
+            <Text style={styles.historyLabel}>Rental Period:</Text>
+            <Text style={styles.historyValue}>{item.startDate} - {item.endDate}</Text>
+          </View>
+          <View style={styles.historyRow}>
+            <Text style={styles.historyLabel}>Total Revenue:</Text>
+            <Text style={styles.historyValueBold}>Rs. {item.totalAmount?.toLocaleString()}</Text>
+          </View>
         </View>
+        <TouchableOpacity 
+          style={styles.approveReturnBtn}
+          onPress={() => navigate("/owner-confirm-return/" + item.id)}
+        >
+          <CheckCircle size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Text style={styles.approveBtnText}>Confirm Return Received & Rate</Text>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity 
-        style={styles.approveReturnBtn}
-        onPress={() => navigate("/owner-confirm-return/" + item.id)}
-      >
-        <CheckCircle size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-        <Text style={styles.approveBtnText}>Confirm Return Received</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   const renderHistory = ({ item }) => (
     <View style={styles.card}>
@@ -285,11 +320,11 @@ export default function MyAddsScreen() {
         </View>
         <View style={[
           styles.statusBadge, 
-          { backgroundColor: item.status === "Completed" ? "#DCFCE7" : "#FEE2E2" }
+          { backgroundColor: isReturnStatus(item.status) ? "#FEF9C3" : item.status === "Completed" ? "#DCFCE7" : "#FEE2E2" }
         ]}>
           <Text style={[
             styles.statusText, 
-            { color: item.status === "Completed" ? "#166534" : "#991B1B" }
+            { color: isReturnStatus(item.status) ? "#A16207" : item.status === "Completed" ? "#166534" : "#991B1B" }
           ]}>
             {(item.status || "").toUpperCase()}
           </Text>
@@ -316,9 +351,18 @@ export default function MyAddsScreen() {
             />
           ))}
         </View>
-        <TouchableOpacity onPress={() => navigate("/rental-detail/" + item.id)}>
-          <Text style={styles.detailsBtnText}>View Details</Text>
-        </TouchableOpacity>
+        {isReturnStatus(item.status) ? (
+          <TouchableOpacity 
+            style={{ backgroundColor: "#9333EA", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}
+            onPress={() => navigate("/owner-confirm-return/" + item.id)}
+          >
+            <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 12 }}>Confirm Return</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={() => navigate("/rental-detail/" + item.id)}>
+            <Text style={styles.detailsBtnText}>View Details</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -374,12 +418,6 @@ export default function MyAddsScreen() {
                 <Text style={styles.badgeText}>{returns.length}</Text>
               </View>
             )}
-          </TouchableOpacity>
-          <TouchableOpacity 
-            onPress={() => setActiveTab("history")}
-            style={[styles.tab, activeTab === "history" && styles.tabActive]}
-          >
-            <Text style={[styles.tabText, activeTab === "history" && styles.tabTextActive]}>History</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             onPress={() => setActiveTab("history")}
@@ -517,6 +555,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
+    paddingBottom: 90,
   },
   card: {
     backgroundColor: "#FFFFFF",

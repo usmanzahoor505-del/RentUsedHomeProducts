@@ -6,9 +6,9 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigate } from "react-router";
 import LinearGradient from "react-native-linear-gradient";
 import {
@@ -24,6 +24,8 @@ import {
   Calendar,
   Shield,
   Heart,
+  Bell,
+  Truck,
 } from "lucide-react-native";
 import { useUser } from "../context/UserContext";
 import axios from "axios";
@@ -65,7 +67,9 @@ export default function ProfileScreen() {
   const menuItems = [
     { icon: Package, label: "My Listings", path: "/my-adds", color: "#2563EB" },
     { icon: Package, label: "My Rentals", path: "/my-rentals", color: "#9333EA" },
-    { icon: Heart, label: "Favorites", path: "/home", color: "#DC2626" },
+    { icon: Truck, label: "Switch to Courier / Rider Mode", path: "/courier-home", color: "#10B981" },
+    { icon: Heart, label: "My Wishlist", path: "/wishlist", color: "#DC2626" },
+    { icon: Bell, label: "Notifications", path: "/notifications", color: "#7C3AED" },
     { icon: Star, label: "My Reviews", path: "/vendor/" + userId, color: "#CA8A04" },
 
     { icon: Shield, label: "Trust & Safety", path: "/home", color: "#16A34A" },

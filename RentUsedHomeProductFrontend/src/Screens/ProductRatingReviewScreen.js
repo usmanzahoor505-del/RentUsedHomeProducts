@@ -6,11 +6,11 @@ import {
   ScrollView,
   StyleSheet,
   Image,
-  SafeAreaView,
   TextInput,
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, Star, User } from "lucide-react-native";
 import axios from "axios";
@@ -23,6 +23,7 @@ export default function ProductRatingReviewScreen() {
   const [productRating, setProductRating] = useState(0);
   const [ownerRating, setOwnerRating] = useState(0);
   const [review, setReview] = useState("");
+  const [ownerReview, setOwnerReview] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rentalData, setRentalData] = useState(null);
@@ -74,7 +75,8 @@ export default function ProductRatingReviewScreen() {
       const payload = {
         productRating: productRating,
         productReview: review.trim(),
-        ownerRating: ownerRating
+        ownerRating: ownerRating,
+        ownerReview: ownerReview.trim()
       };
 
       console.log("Submitting review for rental:", id, payload);
@@ -161,16 +163,30 @@ export default function ProductRatingReviewScreen() {
           </Text>
         </View>
 
-        {/* Review Section */}
+        {/* Product Review Section */}
         <View style={styles.card}>
-          <Text style={styles.inputLabel}>Write a Review (Optional)</Text>
+          <Text style={styles.inputLabel}>Product Review (Optional)</Text>
           <TextInput
-            placeholder="Share your experience with this rental..."
+            placeholder="Share details about the product condition and performance..."
             value={review}
             onChangeText={setReview}
             style={styles.textArea}
             multiline
-            numberOfLines={6}
+            numberOfLines={4}
+            placeholderTextColor="#9CA3AF"
+          />
+        </View>
+
+        {/* Owner Review Section */}
+        <View style={styles.card}>
+          <Text style={styles.inputLabel}>Owner / Vendor Review (Optional)</Text>
+          <TextInput
+            placeholder="Share your experience dealing with the owner..."
+            value={ownerReview}
+            onChangeText={setOwnerReview}
+            style={styles.textArea}
+            multiline
+            numberOfLines={4}
             placeholderTextColor="#9CA3AF"
           />
         </View>

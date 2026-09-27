@@ -6,11 +6,12 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  SafeAreaView,
   Dimensions,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import { useNavigate, useParams } from "react-router";
-import { ArrowLeft, Calendar as CalendarIcon, CreditCard, ChevronDown } from "lucide-react-native";
+import { ArrowLeft, Calendar as CalendarIcon, CreditCard, ChevronDown, Truck, MapPin, ShieldCheck } from "lucide-react-native";
 import DatePicker from "react-native-date-picker";
 import { format } from "date-fns";
 import { useDateFilter } from "../context/DateFilterContext";
@@ -35,10 +36,14 @@ export default function BookingScreen() {
   const [numberOfDays, setNumberOfDays] = useState(contextNumberOfDays || 1);
   const [open, setOpen] = useState(false);
   
-  const { userId } = useUser();
+  const { userId, userCity } = useUser();
   const [product, setProduct] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Delivery Option State
+  const [deliveryOption, setDeliveryOption] = useState("CourierDelivery"); // "CourierDelivery" or "SelfPickup"
+  const [deliveryAddress, setDeliveryAddress] = useState(userCity ? `${userCity}, Pakistan` : "Rawalpindi, Pakistan");
 
   React.useEffect(() => {
     const fetchProduct = async () => {
@@ -60,15 +65,17 @@ export default function BookingScreen() {
     if (startDate && numberOfDays > 0) {
       const subtotal = numberOfDays * productPrice;
       const serviceFee = subtotal * 0.1;
-      const total = subtotal + serviceFee;
+      const deliveryFee = deliveryOption === "CourierDelivery" ? 250 : 0;
+      const total = subtotal + serviceFee + deliveryFee;
       return {
         days: numberOfDays,
         subtotal,
         serviceFee,
+        deliveryFee,
         total,
       };
     }
-    return { days: 0, subtotal: 0, serviceFee: 0, total: 0 };
+    return { days: 0, subtotal: 0, serviceFee: 0, deliveryFee: 0, total: 0 };
   };
 
   const totals = calculateTotal();
@@ -99,12 +106,16 @@ export default function BookingScreen() {
     }
     try {
       setIsSubmitting(true);
+      const isDelivery = deliveryOption === "CourierDelivery";
       const payload = {
         ProductId: product.productId,
         OwnerId: product.owner.userId,
         RenterId: userId,
         StartDate: format(startDate, 'yyyy-MM-dd'),
-        EndDate: format(getCalculatedEndDate(), 'yyyy-MM-dd')
+        EndDate: format(getCalculatedEndDate(), 'yyyy-MM-dd'),
+        DeliveryOption: deliveryOption,
+        DeliveryAddress: isDelivery ? deliveryAddress : null,
+        DeliveryFee: isDelivery ? 250 : 0,
       };
       
       console.log("Sending Payload:", payload);
@@ -211,6 +222,72 @@ export default function BookingScreen() {
           </View>
         </View>
 
+        {/* Delivery Method Selector */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Delivery Method</Text>
+
+          <View style={styles.deliveryOptionsRow}>
+            {/* Courier Delivery */}
+            <TouchableOpacity
+              style={[
+                styles.deliveryOptionCard,
+                deliveryOption === "CourierDelivery" && styles.deliveryOptionCardActive,
+              ]}
+              onPress={() => setDeliveryOption("CourierDelivery")}
+              activeOpacity={0.8}
+            >
+              <View style={styles.deliveryCardHeader}>
+                <View style={[styles.deliveryIconBox, deliveryOption === "CourierDelivery" && styles.deliveryIconBoxActive]}>
+                  <Truck size={20} color={deliveryOption === "CourierDelivery" ? "#FFFFFF" : "#9333EA"} />
+                </View>
+                <View style={styles.deliveryFeeBadge}>
+                  <Text style={styles.deliveryFeeText}>+ Rs. 250</Text>
+                </View>
+              </View>
+              <Text style={styles.deliveryOptionTitle}>Courier Delivery</Text>
+              <Text style={styles.deliveryOptionSubtitle}>
+                Live GPS rider tracking & photo condition check
+              </Text>
+            </TouchableOpacity>
+
+            {/* Self Pickup */}
+            <TouchableOpacity
+              style={[
+                styles.deliveryOptionCard,
+                deliveryOption === "SelfPickup" && styles.deliveryOptionCardActive,
+              ]}
+              onPress={() => setDeliveryOption("SelfPickup")}
+              activeOpacity={0.8}
+            >
+              <View style={styles.deliveryCardHeader}>
+                <View style={[styles.deliveryIconBox, deliveryOption === "SelfPickup" && styles.deliveryIconBoxActive]}>
+                  <MapPin size={20} color={deliveryOption === "SelfPickup" ? "#FFFFFF" : "#6B7280"} />
+                </View>
+                <View style={[styles.deliveryFeeBadge, { backgroundColor: "#DCFCE7" }]}>
+                  <Text style={[styles.deliveryFeeText, { color: "#15803D" }]}>Free</Text>
+                </View>
+              </View>
+              <Text style={styles.deliveryOptionTitle}>Self-Pickup</Text>
+              <Text style={styles.deliveryOptionSubtitle}>
+                Pick up directly from owner in {product?.location || "item location"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {deliveryOption === "CourierDelivery" && (
+            <View style={styles.deliveryAddressContainer}>
+              <Text style={styles.deliveryAddressLabel}>Your Delivery Dropoff Address:</Text>
+              <TextInput
+                style={styles.deliveryAddressInput}
+                placeholder="Street address, house #, area..."
+                value={deliveryAddress}
+                onChangeText={setDeliveryAddress}
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+          )}
+        </View>
+
         {/* Pricing Summary */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Booking Summary</Text>
@@ -224,6 +301,14 @@ export default function BookingScreen() {
             <Text style={styles.summaryLabel}>Service Fee (10%)</Text>
             <Text style={styles.summaryValue}>Rs. {Math.round(totals.serviceFee).toLocaleString()}</Text>
           </View>
+          {totals.deliveryFee > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Courier Delivery</Text>
+              <Text style={[styles.summaryValue, { color: "#9333EA", fontWeight: "700" }]}>
+                + Rs. {totals.deliveryFee}
+              </Text>
+            </View>
+          )}
           <View style={styles.divider} />
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
@@ -465,5 +550,83 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  deliveryOptionsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 12,
+  },
+  deliveryOptionCard: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1.5,
+    borderColor: "#E5E7EB",
+    borderRadius: 16,
+    padding: 12,
+  },
+  deliveryOptionCardActive: {
+    borderColor: "#9333EA",
+    backgroundColor: "#FAF5FF",
+  },
+  deliveryCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  deliveryIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F3E8FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deliveryIconBoxActive: {
+    backgroundColor: "#9333EA",
+  },
+  deliveryFeeBadge: {
+    backgroundColor: "#F3E8FF",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  deliveryFeeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#9333EA",
+  },
+  deliveryOptionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  deliveryOptionSubtitle: {
+    fontSize: 11,
+    color: "#6B7280",
+    marginTop: 4,
+    lineHeight: 14,
+  },
+  deliveryAddressContainer: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+  },
+  deliveryAddressLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 6,
+  },
+  deliveryAddressInput: {
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: "#111827",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
 });

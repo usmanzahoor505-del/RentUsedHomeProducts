@@ -5,11 +5,12 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
   TextInput,
   Image,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, Star, Upload, CheckCircle, X } from "lucide-react-native";
 import { launchImageLibrary } from "react-native-image-picker";
@@ -25,7 +26,8 @@ export default function CustomerRateReturnScreen() {
 
   const [uploadedPhotos, setUploadedPhotos] = useState([]);
   const [isFollowed, setIsFollowed] = useState(false);
-  const [comment, setComment] = useState("");
+  const [productReview, setProductReview] = useState("");
+  const [ownerReview, setOwnerReview] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
 
 
@@ -67,8 +69,9 @@ export default function CustomerRateReturnScreen() {
     try {
       await axios.put(`${API_URL}/rental/rate-product/${id}`, {
         productRating,
-        productReview: comment,
-        ownerRating
+        productReview: productReview.trim(),
+        ownerRating,
+        ownerReview: ownerReview.trim()
       });
       setIsSubmitted(true);
     } catch (error) {
@@ -167,15 +170,27 @@ export default function CustomerRateReturnScreen() {
             )}
           </ScrollView>
 
-          {/* Comments */}
-          <Text style={[styles.inputLabel, { marginTop: 24 }]}>Additional Comments (Optional)</Text>
+          {/* Product Review */}
+          <Text style={[styles.inputLabel, { marginTop: 20 }]}>Product Review (Optional)</Text>
           <TextInput
-            placeholder="Share any additional details about the condition..."
-            value={comment}
-            onChangeText={setComment}
+            placeholder="Share details about the product condition, performance, and quality..."
+            value={productReview}
+            onChangeText={setProductReview}
             style={styles.textArea}
             multiline
-            numberOfLines={4}
+            numberOfLines={3}
+            placeholderTextColor="#9CA3AF"
+          />
+
+          {/* Owner Review */}
+          <Text style={[styles.inputLabel, { marginTop: 16 }]}>Owner Experience Review (Optional)</Text>
+          <TextInput
+            placeholder="Share feedback about the owner, handover process, and communication..."
+            value={ownerReview}
+            onChangeText={setOwnerReview}
+            style={styles.textArea}
+            multiline
+            numberOfLines={3}
             placeholderTextColor="#9CA3AF"
           />
         </View>

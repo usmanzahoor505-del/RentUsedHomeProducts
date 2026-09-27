@@ -6,14 +6,14 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
+  ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, Star, Clock, CheckCircle, Package, User } from "lucide-react-native";
 
 import axios from "axios";
 import { API_URL } from "../utils/api";
-import { ActivityIndicator } from "react-native";
 
 export default function RenterProfileScreen() {
   const navigate = useNavigate();

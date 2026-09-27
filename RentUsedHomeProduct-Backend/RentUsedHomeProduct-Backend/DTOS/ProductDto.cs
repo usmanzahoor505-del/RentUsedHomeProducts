@@ -14,6 +14,9 @@ namespace RentUsedHomeProduct_Backend.DTOs
         public decimal PricePerDay { get; set; }
         public string Status { get; set; } = "Available";
         public string Location { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+        public double? RadiusKm { get; set; }
         public List<ProductAttributeValueDto> Attributes { get; set; }
     }
 }

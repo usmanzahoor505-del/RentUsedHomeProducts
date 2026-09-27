@@ -1,72 +1,123 @@
--- ================================================
--- STEP 1: Purana data saaf karein
--- ================================================
+-- ============================================================================
+-- RentUsedHomeProducts - Seed Script (Approach B: Relational Normalization)
+-- ============================================================================
+
+-- STEP 1: Clean existing data (respecting foreign key hierarchy)
 DELETE FROM Product_Attribute_Values;
+DELETE FROM Product_Images;
+DELETE FROM Rentals;
+DELETE FROM Products;
 DELETE FROM Category_Attributes;
+DELETE FROM Categories WHERE parent_id IS NOT NULL;
 DELETE FROM Categories;
 
--- ================================================
--- STEP 2: Main Categories (5)
--- ================================================
-INSERT INTO Categories (category_name, description) VALUES ('Electronics', 'Electronic gadgets and devices');
-INSERT INTO Categories (category_name, description) VALUES ('Furniture', 'Home and office furniture');
-INSERT INTO Categories (category_name, description) VALUES ('Tools', 'Construction and repair tools');
-INSERT INTO Categories (category_name, description) VALUES ('Kitchen', 'Kitchenware and appliances');
-INSERT INTO Categories (category_name, description) VALUES ('Others', 'Miscellaneous items');
+-- STEP 2: Main Categories (parent_id = NULL)
+INSERT INTO Categories (category_name, description, parent_id) VALUES 
+('Electronics', 'Electronic gadgets and devices', NULL),
+('Furniture', 'Home and office furniture', NULL),
+('Tools', 'Construction and repair tools', NULL),
+('Kitchen', 'Kitchenware and appliances', NULL),
+('Others', 'Miscellaneous items', NULL);
 
--- ================================================
--- STEP 3: Sub-Categories (Category_Attributes table)
--- Har category ki 5 sub-categories
--- attributes_list mein us sub-category ke specific attributes hain
--- ================================================
+-- STEP 3: Sub-Categories in Categories Table (parent_id references Main Categories)
+-- Electronics Sub-Categories
+DECLARE @ElecId INT = (SELECT category_id FROM Categories WHERE category_name = 'Electronics' AND parent_id IS NULL);
+INSERT INTO Categories (category_name, description, parent_id) VALUES
+('Laptops', 'Laptops and notebooks', @ElecId),
+('Smartphones', 'Smartphones and mobile phones', @ElecId),
+('Cameras', 'Digital and DSLR cameras', @ElecId),
+('Tablets', 'Tablets and e-readers', @ElecId),
+('Accessories', 'Electronic accessories and peripherals', @ElecId);
 
--- ----- ELECTRONICS (5 Sub-Categories) -----
-INSERT INTO Category_Attributes (name, category_id, attributes_list) VALUES
-('Laptops',      (SELECT category_id FROM Categories WHERE category_name = 'Electronics'), 'Brand,Processor,RAM,Storage,Screen Size'),
-('Smartphones',  (SELECT category_id FROM Categories WHERE category_name = 'Electronics'), 'Brand,Model,RAM,Storage,Battery'),
-('Cameras',      (SELECT category_id FROM Categories WHERE category_name = 'Electronics'), 'Brand,Type,Megapixels,Storage Type,Lens'),
-('Tablets',      (SELECT category_id FROM Categories WHERE category_name = 'Electronics'), 'Brand,RAM,Storage,Screen Size,Connectivity'),
-('Accessories',  (SELECT category_id FROM Categories WHERE category_name = 'Electronics'), 'Type,Brand,Compatibility,Color,Condition');
+-- Furniture Sub-Categories
+DECLARE @FurnId INT = (SELECT category_id FROM Categories WHERE category_name = 'Furniture' AND parent_id IS NULL);
+INSERT INTO Categories (category_name, description, parent_id) VALUES
+('Bed', 'Beds and mattresses', @FurnId),
+('Sofa', 'Living room sofas and couches', @FurnId),
+('Dining Table', 'Dining tables and sets', @FurnId),
+('Wardrobe', 'Wardrobes and cupboards', @FurnId),
+('Chair', 'Office, dining, and gaming chairs', @FurnId);
 
--- ----- FURNITURE (5 Sub-Categories) -----
-INSERT INTO Category_Attributes (name, category_id, attributes_list) VALUES
-('Bed',          (SELECT category_id FROM Categories WHERE category_name = 'Furniture'), 'Size,Material,Type,Color,Condition'),
-('Sofa',         (SELECT category_id FROM Categories WHERE category_name = 'Furniture'), 'Seating Capacity,Material,Type,Color,Condition'),
-('Dining Table', (SELECT category_id FROM Categories WHERE category_name = 'Furniture'), 'Seating Capacity,Material,Shape,Color,Condition'),
-('Wardrobe',     (SELECT category_id FROM Categories WHERE category_name = 'Furniture'), 'Doors,Material,Size,Color,Condition'),
-('Chair',        (SELECT category_id FROM Categories WHERE category_name = 'Furniture'), 'Type,Material,Color,Adjustable,Condition');
+-- Tools Sub-Categories
+DECLARE @ToolId INT = (SELECT category_id FROM Categories WHERE category_name = 'Tools' AND parent_id IS NULL);
+INSERT INTO Categories (category_name, description, parent_id) VALUES
+('Power Drills & Drivers', 'Drills and driver equipment', @ToolId),
+('Cutting & Sawing Tools', 'Saws and cutting machinery', @ToolId),
+('Fastening Tools', 'Nailers and fastening equipment', @ToolId),
+('Sanding & Grinding Tools', 'Sanders and grinders', @ToolId),
+('Hand Tool Sets', 'Complete manual tool kits', @ToolId);
 
--- ----- TOOLS (5 Sub-Categories) -----
-INSERT INTO Category_Attributes (name, category_id, attributes_list) VALUES
-('Power Drills & Drivers',    (SELECT category_id FROM Categories WHERE category_name = 'Tools'), 'Drill Type,Voltage,Chuck Size,Maximum RPM,Motor Type'),
-('Cutting & Sawing Tools',    (SELECT category_id FROM Categories WHERE category_name = 'Tools'), 'Saw Type,Blade Diameter,Maximum Cut Depth,Bevel Capacity,Amperage'),
-('Fastening Tools',           (SELECT category_id FROM Categories WHERE category_name = 'Tools'), 'Tool Type,Fastener Size,Drive Size,Maximum Torque,Magazine Capacity'),
-('Sanding & Grinding Tools',  (SELECT category_id FROM Categories WHERE category_name = 'Tools'), 'Sander Type,Pad/Belt Size,Orbit Diameter,Speed,Dust Extraction Port'),
-('Hand Tool Sets',            (SELECT category_id FROM Categories WHERE category_name = 'Tools'), 'Set Type,Drive System,Material,Piece Count,Case Type');
+-- Kitchen Sub-Categories
+DECLARE @KitchId INT = (SELECT category_id FROM Categories WHERE category_name = 'Kitchen' AND parent_id IS NULL);
+INSERT INTO Categories (category_name, description, parent_id) VALUES
+('Cookware & Bakeware', 'Pots, pans, and baking dishes', @KitchId),
+('Small Kitchen Appliances', 'Blenders, air fryers, and cooktops', @KitchId),
+('Tableware & Dinnerware', 'Plates, bowls, and glassware', @KitchId),
+('Kitchen Organization & Storage', 'Racks, bins, and canisters', @KitchId),
+('Preparation & Culinary Tools', 'Knives, peelers, and utensils', @KitchId);
 
--- ----- KITCHEN (5 Sub-Categories) -----
-INSERT INTO Category_Attributes (name, category_id, attributes_list) VALUES
-('Cookware & Bakeware',           (SELECT category_id FROM Categories WHERE category_name = 'Kitchen'), 'Material,Heat Source Compatibility,Capacity/Size,Coating Type,Specialty Function'),
-('Small Kitchen Appliances',      (SELECT category_id FROM Categories WHERE category_name = 'Kitchen'), 'Appliance Type,Connectivity,Sustainability Rating,Form Factor,Finishes/Colors'),
-('Tableware & Dinnerware',        (SELECT category_id FROM Categories WHERE category_name = 'Kitchen'), 'Item Type,Style,Material,Color Palette,Durability'),
-('Kitchen Organization & Storage',(SELECT category_id FROM Categories WHERE category_name = 'Kitchen'), 'Storage Location,Container Type,Specialized Use,Material,Feature'),
-('Preparation & Culinary Tools',  (SELECT category_id FROM Categories WHERE category_name = 'Kitchen'), 'Tool Type,Material,Ergonomics,Functional Need,Aesthetic Style');
+-- Others Sub-Categories
+DECLARE @OthId INT = (SELECT category_id FROM Categories WHERE category_name = 'Others' AND parent_id IS NULL);
+INSERT INTO Categories (category_name, description, parent_id) VALUES
+('Books', 'Educational and leisure books', @OthId),
+('Sports Equipment', 'Fitness and athletic equipment', @OthId),
+('Musical Instruments', 'Guitars, keyboards, and drums', @OthId),
+('Garden Tools', 'Lawnmowers and gardening gear', @OthId),
+('Baby Items', 'Strollers, cribs, and baby carriers', @OthId);
 
--- ----- OTHERS (5 Sub-Categories) -----
-INSERT INTO Category_Attributes (name, category_id, attributes_list) VALUES
-('Books',               (SELECT category_id FROM Categories WHERE category_name = 'Others'), 'Subject,Language,Condition,Author Type,Edition'),
-('Sports Equipment',    (SELECT category_id FROM Categories WHERE category_name = 'Others'), 'Sport Type,Brand,Size,Material,Condition'),
-('Musical Instruments', (SELECT category_id FROM Categories WHERE category_name = 'Others'), 'Instrument,Brand,Type,Material,Condition'),
-('Garden Tools',        (SELECT category_id FROM Categories WHERE category_name = 'Others'), 'Tool Type,Brand,Material,Size,Condition'),
-('Baby Items',          (SELECT category_id FROM Categories WHERE category_name = 'Others'), 'Item Type,Brand,Age Group,Color,Condition');
+-- STEP 4: Normalized Category Attributes (Each row is an individual attribute)
+-- Laptops Attributes
+DECLARE @LaptopId INT = (SELECT category_id FROM Categories WHERE category_name = 'Laptops');
+INSERT INTO Category_Attributes (name, type, category_id, attributes_list) VALUES
+('Brand', 'dropdown', @LaptopId, 'Apple,Dell,HP,Lenovo,Asus,Acer,MSI,Samsung,Other'),
+('Processor', 'dropdown', @LaptopId, 'Intel Core i3,Intel Core i5,Intel Core i7,Intel Core i9,AMD Ryzen 5,AMD Ryzen 7,AMD Ryzen 9,Apple M1,Apple M2'),
+('RAM', 'dropdown', @LaptopId, '4GB,8GB,12GB,16GB,32GB,64GB'),
+('Storage', 'dropdown', @LaptopId, '128GB,256GB,512GB,1TB,2TB'),
+('Screen Size', 'dropdown', @LaptopId, '11 inch,13 inch,14 inch,15.6 inch,16 inch,17 inch');
 
--- ================================================
--- Verify karein
--- ================================================
-SELECT 
-    c.category_name AS 'Main Category',
-    ca.name AS 'Sub Category',
-    ca.attributes_list AS 'Attributes'
-FROM Category_Attributes ca
-JOIN Categories c ON ca.category_id = c.category_id
-ORDER BY c.category_name, ca.name;
+-- Smartphones Attributes
+DECLARE @PhoneId INT = (SELECT category_id FROM Categories WHERE category_name = 'Smartphones');
+INSERT INTO Category_Attributes (name, type, category_id, attributes_list) VALUES
+('Brand', 'dropdown', @PhoneId, 'Apple,Samsung,Google,OnePlus,Xiaomi,Other'),
+('Model', 'dropdown', @PhoneId, 'iPhone 14,iPhone 15,Samsung S23,Samsung S24,Pixel 8,OnePlus 12,Xiaomi 13,Other'),
+('RAM', 'dropdown', @PhoneId, '4GB,6GB,8GB,12GB,16GB'),
+('Storage', 'dropdown', @PhoneId, '64GB,128GB,256GB,512GB,1TB'),
+('Battery', 'dropdown', @PhoneId, '3000 mAh,4000 mAh,5000 mAh,6000 mAh');
+
+-- Bed Attributes
+DECLARE @BedId INT = (SELECT category_id FROM Categories WHERE category_name = 'Bed');
+INSERT INTO Category_Attributes (name, type, category_id, attributes_list) VALUES
+('Size', 'dropdown', @BedId, 'Single,Double,Queen,King'),
+('Material', 'dropdown', @BedId, 'Wood,Metal,Plastic,Fabric,Leather'),
+('Type', 'dropdown', @BedId, 'Platform,Storage Bed,Bunk Bed,Canopy,Folding'),
+('Color', 'dropdown', @BedId, 'Brown,White,Black,Grey,Beige'),
+('Condition', 'dropdown', @BedId, 'Brand New,Like New,Good,Fair');
+
+-- Sofa Attributes
+DECLARE @SofaId INT = (SELECT category_id FROM Categories WHERE category_name = 'Sofa');
+INSERT INTO Category_Attributes (name, type, category_id, attributes_list) VALUES
+('Seating Capacity', 'dropdown', @SofaId, '1 Person,2 Persons,3 Persons,4 Persons,6 Persons,8+ Persons'),
+('Material', 'dropdown', @SofaId, 'Wood,Fabric,Leather,Velvet,Foam'),
+('Type', 'dropdown', @SofaId, 'Standard,L-Shape,Recliner,Sofa Bed,Sectional,Wooden'),
+('Color', 'dropdown', @SofaId, 'Brown,Grey,Blue,Black,Beige,Red'),
+('Condition', 'dropdown', @SofaId, 'Brand New,Like New,Good,Fair');
+
+-- 4. Sample Wishlists & Notifications Seed
+IF EXISTS (SELECT 1 FROM Users) AND EXISTS (SELECT 1 FROM Products)
+BEGIN
+    DECLARE @SampleUser INT = (SELECT TOP 1 user_id FROM Users ORDER BY user_id);
+    DECLARE @SampleProduct INT = (SELECT TOP 1 product_id FROM Products ORDER BY product_id);
+
+    IF NOT EXISTS (SELECT 1 FROM Wishlists WHERE user_id = @SampleUser AND product_id = @SampleProduct)
+    BEGIN
+        INSERT INTO Wishlists (user_id, product_id, notify_on_available)
+        VALUES (@SampleUser, @SampleProduct, 1);
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Notifications WHERE user_id = @SampleUser)
+    BEGIN
+        INSERT INTO Notifications (user_id, product_id, title, message, type, is_read)
+        VALUES (@SampleUser, @SampleProduct, 'Welcome to RentUsed!', 'Explore items or add them to your wishlist to get notified when available.', 'System', 0);
+    END
+END
+

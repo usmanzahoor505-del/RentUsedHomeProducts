@@ -9,6 +9,8 @@ namespace RentUsedHomeProduct_Backend.DTOs
         public string City { get; set; }
         public string PhoneNo { get; set; }
         public string? CNIC { get; set; }
+        public string? Role { get; set; } = "Customer";
+        public string? VehicleType { get; set; }
+        public string? VehiclePlate { get; set; }
     }
-
 }

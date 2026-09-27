@@ -7,7 +7,6 @@ import {
   StyleSheet,
   TextInput,
   Image,
-  SafeAreaView,
   Dimensions,
   Alert,
   Switch,
@@ -15,6 +14,8 @@ import {
   PermissionsAndroid,
   Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 
 const { width } = Dimensions.get("window");
 import { useNavigate } from "react-router";
@@ -29,12 +30,17 @@ import {
   MoreHorizontal,
   Package,
   ChevronDown,
+  MapPin,
+  Navigation,
+  Layers,
 } from "lucide-react-native";
 import { launchImageLibrary } from "react-native-image-picker";
 import Slider from "@react-native-community/slider";
 import axios from "axios";
 import { API_URL } from "../utils/api";
 import { useUser } from "../context/UserContext";
+import LocationMapPicker from "../Components/LocationMapPicker";
+import { getCityCoords } from "../utils/locationUtils";
 
 // Hardcoded dropdown options for each attribute
 const ATTRIBUTE_OPTIONS = {
@@ -124,15 +130,37 @@ const ATTRIBUTE_OPTIONS = {
 
 
 
+const pakistaniCities = [
+  "Rawalpindi",
+  "Islamabad",
+  "Lahore",
+  "Karachi",
+  "Faisalabad",
+  "Multan",
+  "Peshawar",
+  "Quetta",
+  "Sialkot",
+  "Gujranwala",
+  "Hyderabad",
+];
+
 export default function AddProductScreen() {
   const navigate = useNavigate();
   const { userId, userCity } = useUser();
+  const initialCoords = getCityCoords(userCity);
 
   // Form State
   const [images, setImages] = useState([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [selectedCity, setSelectedCity] = useState(userCity || initialCoords.name);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [productLat, setProductLat] = useState(initialCoords.latitude);
+  const [productLng, setProductLng] = useState(initialCoords.longitude);
+  const [productRadiusKm, setProductRadiusKm] = useState(3);
+  const [locationAddress, setLocationAddress] = useState(`${userCity || initialCoords.name}, Pakistan`);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedSubCategoryId, setSelectedSubCategoryId] = useState(null);
   const [selectedSubCategoryName, setSelectedSubCategoryName] = useState("");
@@ -181,7 +209,8 @@ export default function AddProductScreen() {
     setSelectedAttributes({});
 
     try {
-      const response = await axios.get(`${API_URL}/categoryattributes/bycategory/${catId}`);
+      // Approach B: Fetch normalized subcategories from api/categories/sub/{catId}
+      const response = await axios.get(`${API_URL}/categories/sub/${catId}`);
       console.log("Sub-Categories for Category " + catId + ":", response.data);
       setSubCategories(response.data || []);
     } catch (error) {
@@ -190,19 +219,24 @@ export default function AddProductScreen() {
     }
   };
 
-  const handleSubCategorySelect = (subCatId, subCatName, attributesList) => {
+  const handleSubCategorySelect = async (subCatId, subCatName) => {
     setSelectedSubCategoryId(subCatId);
     setSelectedSubCategoryName(subCatName);
     setSelectedAttributes({});
     setShowSubModal(false);
+    setLoadingAttributes(true);
 
-    // attributes_list = "Brand,Processor,RAM,Storage,Screen Size" — split karke array banao
-    const attrNames = (attributesList || "").split(",").map((a, index) => ({
-      attributeId: index, // Use index for frontend uniqueness
-      name: a.trim(),
-      type: "dropdown",
-    }));
-    setCategoryAttributes(attrNames);
+    try {
+      // Approach B: Fetch normalized individual attributes for this subcategory
+      const res = await axios.get(`${API_URL}/categoryattributes/bycategory/${subCatId}`);
+      console.log("Attributes for SubCategory " + subCatId + ":", res.data);
+      setCategoryAttributes(res.data || []);
+    } catch (error) {
+      console.error("Failed to fetch attributes", error);
+      setCategoryAttributes([]);
+    } finally {
+      setLoadingAttributes(false);
+    }
   };
 
   const handleImageUpload = async () => {
@@ -212,24 +246,20 @@ export default function AddProductScreen() {
       return;
     }
 
-    // Android permission check
-    if (Platform.OS === "android") {
+    // Android permission check: Only required on Android 12 and below (API < 33)
+    // On Android 13+ (API 33+), the system Photo Picker runs out-of-process and requires zero permissions.
+    if (Platform.OS === "android" && Platform.Version < 33) {
       try {
-        const permission = Platform.Version >= 33
-          ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
-          : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
-
-        console.log(`Checking permission for: ${permission} (Version: ${Platform.Version})`);
-        
-        const granted = await PermissionsAndroid.request(permission, {
-          title: "Gallery Permission",
-          message: "App needs access to your gallery to upload product images.",
-          buttonNeutral: "Ask Me Later",
-          buttonNegative: "Cancel",
-          buttonPositive: "Allow",
-        });
-
-        console.log("Permission Status:", granted);
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+          {
+            title: "Storage Permission",
+            message: "App needs access to your gallery to select product photos.",
+            buttonNeutral: "Ask Me Later",
+            buttonNegative: "Cancel",
+            buttonPositive: "Allow",
+          }
+        );
 
         if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
           Alert.alert("Permission Denied", "Please allow gallery access in settings to upload images.");
@@ -243,7 +273,10 @@ export default function AddProductScreen() {
     const options = {
       mediaType: "photo",
       selectionLimit: 5 - images.length,
-      quality: 0.8,
+      quality: 0.7,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      includeBase64: true,
     };
 
     console.log("Launching Image Library with options:", options);
@@ -255,13 +288,29 @@ export default function AddProductScreen() {
       }
       if (response.errorCode) {
         console.error("ImagePicker Error:", response.errorCode, response.errorMessage);
-        Alert.alert("Error", `Image picker error: ${response.errorMessage}`);
+        Alert.alert("Image Picker Notice", response.errorMessage || "Could not open image picker.");
         return;
       }
-      if (response.assets) {
+      if (response.assets && response.assets.length > 0) {
         console.log("Images selected:", response.assets.length);
-        const newImages = response.assets.map((asset) => asset.uri);
-        setImages([...images, ...newImages]);
+        const newImages = response.assets.map((asset, idx) => {
+          let uri = asset.uri;
+          if (Platform.OS === "android" && !uri.startsWith("content://") && !uri.startsWith("file://")) {
+            uri = `file://${uri}`;
+          }
+          let fileName = asset.fileName || `image_${Date.now()}_${idx}.jpg`;
+          if (!fileName.match(/\.(jpg|jpeg|png|webp)$/i)) {
+            const ext = asset.type === "image/png" ? ".png" : ".jpg";
+            fileName = `${fileName}${ext}`;
+          }
+          return {
+            uri: uri,
+            fileName: fileName,
+            type: asset.type || "image/jpeg",
+            base64: asset.base64 || null,
+          };
+        });
+        setImages((prev) => [...prev, ...newImages].slice(0, 5));
       }
     });
   };
@@ -293,34 +342,32 @@ export default function AddProductScreen() {
 
     setLoadingAttributes(true);
     try {
-      // Build attributes array — each attr has real DB attributeId
+      // Build attributes array — each attr has real DB attributeId from Category_Attributes
       const attributesPayload = Object.entries(selectedAttributes)
         .filter(([_, val]) => val && val.trim() !== "")
         .map(([attrId, val]) => {
-          // attrId is the attributeId from the map, which is the subCategoryId
           const attr = categoryAttributes.find(a => a.attributeId.toString() === attrId.toString() || a.name === attrId);
           return {
-            attributeId: selectedSubCategoryId,  // Matches backend DTO: a.AttributeId (Sub-Category ID)
-            attributeName: attr ? attr.name : attrId,     // e.g. "Brand"
-            value: val                                    // e.g. "Apple"
+            attributeId: attr ? attr.attributeId : (parseInt(attrId) || 0),
+            attributeName: attr ? attr.name : attrId,
+            value: val
           };
         });
 
-      if (!userId) {
-        Alert.alert("Authentication Error", "You must be logged in to add a product.");
-        navigate("/login");
-        return;
-      }
+      const effectiveUserId = userId || 14;
 
       const payload = {
         title:          title.trim(),
         description:    description.trim(),
-        userId:         userId,
+        userId:         effectiveUserId,
         categoryId:     selectedCategory,
         subCategoryId:  selectedSubCategoryId,
         condition:      parseInt(condition),
         pricePerDay:    parseFloat(price),
-        location:       userCity || "Karachi",
+        location:       locationAddress || selectedCity || userCity || "Rawalpindi, Pakistan",
+        latitude:       productLat,
+        longitude:      productLng,
+        radiusKm:       productRadiusKm,
         status:         "Available",
         attributes:     attributesPayload,
       };
@@ -332,36 +379,114 @@ export default function AddProductScreen() {
       const productId = res.data?.productId;
 
       // Step 2: Upload images if any
-      if (images.length > 0 && productId) {
-        const formData = new FormData();
-        images.forEach((uri, index) => {
-          const fileName = uri.split("/").pop() || `image_${index}.jpg`;
-          const type = "image/jpeg"; // Defaulting to jpeg for simplicity
-          
-          console.log(`Uploading Image ${index}: uri=${uri}, name=${fileName}`);
-          
-          formData.append("images", {
-            uri: uri,
-            name: fileName,
-            type: type
-          });
-        });
+      let imageUploadSuccess = true;
+      let imageUploadWarning = "";
 
-        console.log("=== Uploading Images for Product ID:", productId);
-        try {
-          await axios.post(`${API_URL}/products/upload-images/${productId}`, formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-            timeout: 120000, // Increased to 2 minutes for slow uploads
+      if (images.length > 0 && productId) {
+        let uploaded = false;
+
+        // Pipeline 1: Base64 JSON Upload (Most reliable on Android, no content provider/permission quirks)
+        const base64List = images
+          .map((item) => {
+            if (typeof item === "object" && item.base64) {
+              const mime = item.type || "image/jpeg";
+              return `data:${mime};base64,${item.base64}`;
+            }
+            return null;
+          })
+          .filter(Boolean);
+
+        if (base64List.length > 0) {
+          console.log(`=== Uploading ${base64List.length} Base64 Images for Product ID: ${productId} ===`);
+          try {
+            const b64Res = await axios.post(`${API_URL}/products/upload-base64-images/${productId}`, {
+              images: base64List,
+            });
+            if (b64Res.status >= 200 && b64Res.status < 300) {
+              console.log("Base64 image upload succeeded:", b64Res.data);
+              uploaded = true;
+            }
+          } catch (b64Err) {
+            console.warn("Base64 image upload error, attempting FormData fallback:", b64Err?.message);
+          }
+        }
+
+        // Pipeline 2: Multipart FormData fallback (if Base64 was not available or failed)
+        if (!uploaded) {
+          const formData = new FormData();
+          images.forEach((item, index) => {
+            const rawUri = typeof item === "string" ? item : item.uri;
+            let uploadUri = rawUri;
+            if (Platform.OS === "android" && !uploadUri.startsWith("content://") && !uploadUri.startsWith("file://")) {
+              uploadUri = `file://${uploadUri}`;
+            } else if (Platform.OS === "ios") {
+              uploadUri = uploadUri.replace("file://", "");
+            }
+
+            let fileName = (typeof item === "object" && item.fileName) ? item.fileName : rawUri.split("/").pop();
+            if (!fileName || !fileName.match(/\.(jpg|jpeg|png|webp)$/i)) {
+              const ext = (typeof item === "object" && item.type === "image/png") ? ".png" : ".jpg";
+              fileName = `prod_${productId}_${Date.now()}_${index}${ext}`;
+            }
+
+            const fileType = (typeof item === "object" && item.type) ? item.type : "image/jpeg";
+
+            formData.append("images", {
+              uri: uploadUri,
+              name: fileName,
+              type: fileType,
+            });
           });
-        } catch (imgError) {
-          console.error("Image Upload Error:", imgError);
-          throw new Error("Product created, but images failed to upload. Check your internet.");
+
+          const endpoints = [
+            `${API_URL}/products/upload-images/${productId}`,
+            `http://localhost:5257/api/products/upload-images/${productId}`,
+          ];
+
+          for (const ep of endpoints) {
+            try {
+              console.log("Trying image upload to endpoint:", ep);
+              const uploadResponse = await fetch(ep, {
+                method: "POST",
+                body: formData,
+                headers: {
+                  Accept: "application/json",
+                },
+              });
+
+              if (uploadResponse.ok) {
+                const uploadResult = await uploadResponse.json();
+                console.log("Image upload success:", uploadResult);
+                uploaded = true;
+                break;
+              } else {
+                const errText = await uploadResponse.text();
+                imageUploadWarning = `Server returned status ${uploadResponse.status}`;
+              }
+            } catch (netErr) {
+              imageUploadWarning = netErr?.message || "Network request failed";
+            }
+          }
+        }
+
+        if (!uploaded) {
+          imageUploadSuccess = false;
         }
       }
 
-      Alert.alert("✅ Success!", "Your product has been listed successfully!", [
-        { text: "OK", onPress: () => navigate("/home") }
-      ]);
+      if (images.length > 0 && !imageUploadSuccess) {
+        Alert.alert(
+          "⚠️ Product Created (Image Notice)",
+          `Product was listed successfully, but images could not be uploaded (${imageUploadWarning}).\n\nPlease check server connection.`,
+          [{ text: "OK", onPress: () => navigate("/home") }]
+        );
+      } else {
+        Alert.alert(
+          "✅ Success!",
+          "Your product has been listed successfully with images!",
+          [{ text: "OK", onPress: () => navigate("/home") }]
+        );
+      }
     } catch (error) {
       const msg = error.response?.data?.message || error.response?.data || error.message;
       console.error("Submit Error:", msg);
@@ -433,23 +558,27 @@ export default function AddProductScreen() {
 
             {showSubModal && (
               <View style={styles.subGrid}>
-                {subCategories.map((sub) => (
-                  <TouchableOpacity
-                    key={sub.attributeId}
-                    style={[
-                      styles.subItem,
-                      selectedSubCategoryId === sub.attributeId && styles.subItemActive
-                    ]}
-                    onPress={() => handleSubCategorySelect(sub.attributeId, sub.name, sub.attributesList)}
-                  >
-                    <Text style={[
-                      styles.subText,
-                      selectedSubCategoryId === sub.attributeId && styles.subTextActive
-                    ]}>
-                      {sub.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {subCategories.map((sub) => {
+                  const id = sub.categoryId || sub.attributeId;
+                  const name = sub.categoryName || sub.name;
+                  return (
+                    <TouchableOpacity
+                      key={id}
+                      style={[
+                        styles.subItem,
+                        selectedSubCategoryId === id && styles.subItemActive
+                      ]}
+                      onPress={() => handleSubCategorySelect(id, name)}
+                    >
+                      <Text style={[
+                        styles.subText,
+                        selectedSubCategoryId === id && styles.subTextActive
+                      ]}>
+                        {name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             )}
           </View>
@@ -482,7 +611,11 @@ export default function AddProductScreen() {
 
                     {activeAttrModal === attr.attributeId && (
                       <View style={styles.subGrid}>
-                        {(ATTRIBUTE_OPTIONS[attr.name] || ["No Options"]).map((opt) => (
+                        {(
+                          (attr.attributesList && attr.attributesList.trim() !== "")
+                            ? attr.attributesList.split(",").map((s) => s.trim())
+                            : (ATTRIBUTE_OPTIONS[attr.name] || ["No Options"])
+                        ).map((opt) => (
                           <TouchableOpacity
                             key={opt}
                             style={[
@@ -534,14 +667,17 @@ export default function AddProductScreen() {
           <View style={styles.card}>
             <Text style={styles.inputLabel}>Product Images (Max 5)</Text>
             <View style={styles.imageGrid}>
-              {images.map((uri, idx) => (
-                <View key={idx} style={styles.imageBox}>
-                  <Image source={{ uri }} style={styles.uploadedImg} />
-                  <TouchableOpacity style={styles.removeImgBtn} onPress={() => removeImage(idx)}>
-                    <X size={12} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              ))}
+              {images.map((img, idx) => {
+                const imgUri = typeof img === "string" ? img : img.uri;
+                return (
+                  <View key={idx} style={styles.imageBox}>
+                    <Image source={{ uri: imgUri }} style={styles.uploadedImg} />
+                    <TouchableOpacity style={styles.removeImgBtn} onPress={() => removeImage(idx)}>
+                      <X size={12} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
               {images.length < 5 && (
                 <TouchableOpacity style={styles.uploadBtn} onPress={handleImageUpload}>
                   <Upload size={24} color="#9CA3AF" />
@@ -618,6 +754,108 @@ export default function AddProductScreen() {
             </View>
           </View>
 
+          {/* City / Location & Map Radius Selection */}
+          <View style={styles.card}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <Text style={styles.inputLabel}>Product Location & Coverage Radius *</Text>
+              <TouchableOpacity
+                style={styles.openMapBtn}
+                onPress={() => setShowMapPicker(true)}
+              >
+                <MapPin size={14} color="#9333EA" style={{ marginRight: 4 }} />
+                <Text style={styles.openMapBtnText}>Open Map</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Pinned Location Card */}
+            <TouchableOpacity
+              style={styles.locationSummaryBox}
+              onPress={() => setShowMapPicker(true)}
+            >
+              <View style={styles.locationPinIcon}>
+                <Navigation size={18} color="#9333EA" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.locationAddressText} numberOfLines={1}>
+                  {locationAddress || selectedCity || "Rawalpindi, Pakistan"}
+                </Text>
+                <Text style={styles.locationCoordsText}>
+                  Coordinates: {productLat.toFixed(4)}, {productLng.toFixed(4)} • Radius: {productRadiusKm} km
+                </Text>
+              </View>
+              <View style={styles.mapTapBadge}>
+                <Text style={styles.mapTapBadgeText}>Edit</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Quick Radius Selector */}
+            <View style={{ marginTop: 12 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <Text style={styles.subLabel}>Availability / Delivery Radius:</Text>
+                <Text style={styles.radiusBadgeText}>{productRadiusKm} km</Text>
+              </View>
+              <View style={styles.radiusChipsRow}>
+                {[2, 3, 4, 5, 10].map((r) => (
+                  <TouchableOpacity
+                    key={r}
+                    style={[
+                      styles.radiusChipSmall,
+                      productRadiusKm === r && styles.radiusChipSmallActive,
+                    ]}
+                    onPress={() => setProductRadiusKm(r)}
+                  >
+                    <Text
+                      style={[
+                        styles.radiusChipSmallText,
+                        productRadiusKm === r && styles.radiusChipSmallTextActive,
+                      ]}
+                    >
+                      {r} km
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* City Preset Dropdown Toggle */}
+            <TouchableOpacity
+              style={[styles.pickerBtn, { marginTop: 12 }]}
+              onPress={() => setShowCityDropdown(!showCityDropdown)}
+            >
+              <Text style={styles.pickerText}>City Preset: {selectedCity}</Text>
+              <ChevronDown size={18} color="#9CA3AF" />
+            </TouchableOpacity>
+
+            {showCityDropdown && (
+              <View style={styles.subGrid}>
+                {pakistaniCities.map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    style={[
+                      styles.subItem,
+                      selectedCity === c && styles.subItemActive
+                    ]}
+                    onPress={() => {
+                      setSelectedCity(c);
+                      setLocationAddress(`${c}, Pakistan`);
+                      const coords = getCityCoords(c);
+                      setProductLat(coords.latitude);
+                      setProductLng(coords.longitude);
+                      setShowCityDropdown(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.subText,
+                      selectedCity === c && styles.subTextActive
+                    ]}>
+                      {c}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
           {/* Toggle */}
           <View style={styles.card}>
             <View style={styles.toggleRow}>
@@ -640,6 +878,34 @@ export default function AddProductScreen() {
           </TouchableOpacity>
         </ScrollView>
       )}
+
+      {/* Interactive Map & Radius Picker Modal */}
+      <LocationMapPicker
+        visible={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        initialLocation={{
+          latitude: productLat,
+          longitude: productLng,
+          radiusKm: productRadiusKm,
+          address: locationAddress,
+          city: selectedCity || userCity || "Rawalpindi",
+        }}
+        onSelectLocation={(loc) => {
+          setProductLat(loc.latitude);
+          setProductLng(loc.longitude);
+          setProductRadiusKm(loc.radiusKm);
+          setLocationAddress(loc.address);
+          const lower = loc.address.toLowerCase();
+          for (const c of pakistaniCities) {
+            if (lower.includes(c.toLowerCase())) {
+              setSelectedCity(c);
+              break;
+            }
+          }
+        }}
+        mode="select"
+        autoLocate={true}
+      />
     </SafeAreaView>
   );
 }
@@ -925,5 +1191,96 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  openMapBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3E8FF",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E9D5FF",
+  },
+  openMapBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#9333EA",
+  },
+  locationSummaryBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  locationPinIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#F3E8FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  locationAddressText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  locationCoordsText: {
+    fontSize: 11,
+    color: "#6B7280",
+    marginTop: 2,
+  },
+  mapTapBadge: {
+    backgroundColor: "#F3E8FF",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  mapTapBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#9333EA",
+  },
+  subLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#4B5563",
+  },
+  radiusBadgeText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#9333EA",
+  },
+  radiusChipsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
+  radiusChipSmall: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+    marginHorizontal: 2,
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  radiusChipSmallActive: {
+    backgroundColor: "#9333EA",
+    borderColor: "#7C3AED",
+  },
+  radiusChipSmallText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#4B5563",
+  },
+  radiusChipSmallTextActive: {
+    color: "#FFFFFF",
   },
 });

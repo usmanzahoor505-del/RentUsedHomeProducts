@@ -30,6 +30,9 @@ namespace RentUsedHomeProduct_Backend.Models
         [Column("renter_review")]
         public string? RenterReview { get; set; }
 
+        [Column("owner_review")]
+        public string? OwnerReview { get; set; }
+
         [Column("product_rating")]
         public double ProductRating { get; set; }
 
@@ -45,6 +48,12 @@ namespace RentUsedHomeProduct_Backend.Models
         [Column("status")]
         public string Status { get; set; } = "Pending";
 
+        [Column("delivery_option")]
+        public string DeliveryOption { get; set; } = "SelfPickup";
+
+        [Column("delivery_fee")]
+        public decimal DeliveryFee { get; set; } = 0;
+
         // Navigation Properties
         [ForeignKey("ProductId")]
         public Product? Product { get; set; }
@@ -54,5 +63,7 @@ namespace RentUsedHomeProduct_Backend.Models
 
         [ForeignKey("RenterId")]
         public User? Renter { get; set; }
+
+        public Delivery? Delivery { get; set; }
     }
 }

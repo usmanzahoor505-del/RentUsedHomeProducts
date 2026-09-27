@@ -50,6 +50,19 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Ensure wwwroot directory exists for static file serving and uploads
+var webRootPath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
+if (!Directory.Exists(webRootPath))
+{
+    Directory.CreateDirectory(webRootPath);
+}
+var productsUploadDir = Path.Combine(webRootPath, "uploads", "products");
+if (!Directory.Exists(productsUploadDir))
+{
+    Directory.CreateDirectory(productsUploadDir);
+}
+builder.Environment.WebRootPath = webRootPath;
+
 var app = builder.Build();
 
 // Configure middleware AFTER Build()
@@ -65,8 +78,13 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowAll");
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webRootPath),
+    RequestPath = ""
+});
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
+

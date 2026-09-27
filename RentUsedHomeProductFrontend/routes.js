@@ -25,6 +25,11 @@ import CustomerRateReturnScreen from "./src/Screens/CustomerRateReturnScreen";
 import OwnerConfirmReturnScreen from "./src/Screens/OwnerConfirmReturnScreen";
 import PaymentScreen from "./src/Screens/PaymentScreen";
 import RenterProfileScreen from "./src/Screens/RenterProfileScreen";
+import WishlistScreen from "./src/Screens/WishlistScreen";
+import NotificationsScreen from "./src/Screens/NotificationsScreen";
+import CourierHomeScreen from "./src/Screens/CourierHomeScreen";
+import CourierDeliveryScreen from "./src/Screens/CourierDeliveryScreen";
+import DeliveryTrackingScreen from "./src/Screens/DeliveryTrackingScreen";
 
 
 function NativeErrorBoundary() {
@@ -94,9 +99,16 @@ export const router = createMemoryRouter([
       { path: "return-status/:id", Component: ReturnStatusScreen },
       { path: "payment/:id", Component: PaymentScreen },
       { path: "vendor/:id", Component: VendorProfileScreen },
+      { path: "owner-profile/:id", Component: VendorProfileScreen },
       { path: "ratings", Component: RatingScreen },
 
       { path: "renter/:id", Component: RenterProfileScreen },
+      { path: "wishlist", Component: WishlistScreen },
+      { path: "notifications", Component: NotificationsScreen },
+
+      { path: "courier-home", Component: CourierHomeScreen },
+      { path: "courier-delivery/:id", Component: CourierDeliveryScreen },
+      { path: "delivery-tracking/:id", Component: DeliveryTrackingScreen },
     ],
   },
 ]);

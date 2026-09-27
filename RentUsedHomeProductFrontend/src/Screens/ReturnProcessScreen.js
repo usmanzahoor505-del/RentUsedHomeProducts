@@ -5,22 +5,24 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
   Image,
   Alert,
   Modal,
+  ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, Calendar, User, AlertCircle, Package } from "lucide-react-native";
 import { format } from "date-fns";
 import axios from "axios";
-import { API_URL } from "../utils/api";
-import { ActivityIndicator } from "react-native";
+import { API_URL, IMAGE_BASE_URL } from "../utils/api";
 
 export default function ReturnProcessScreen() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [rental, setRental] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,7 +36,7 @@ export default function ReturnProcessScreen() {
       const res = await axios.get(`${API_URL}/rental/${id}`);
       setRental(res.data);
     } catch (error) {
-      console.error(error);
+      console.error("Fetch Rental Error:", error);
       Alert.alert("Error", "Failed to fetch rental details");
     } finally {
       setIsLoading(false);
@@ -49,18 +51,53 @@ export default function ReturnProcessScreen() {
     );
   }
 
-  const startDate = new Date(rental.startDate);
-  const endDate = new Date(rental.endDate);
-  const totalDays = Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24)) || 1;
-  const pricePerDay = rental.totalAmount / totalDays;
+  const startDate = rental.startDate ? new Date(rental.startDate) : new Date();
+  const endDate = rental.endDate ? new Date(rental.endDate) : new Date();
+  const totalDays = Math.max(1, Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24)) || 1);
+  const pricePerDay = rental.product?.pricePerDay || (rental.totalAmount ? rental.totalAmount / totalDays : 0);
+  const totalAmount = rental.totalAmount != null ? rental.totalAmount : (pricePerDay * totalDays);
+
+  let primaryImage = rental.product?.primaryImage || "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80";
+  if (primaryImage && primaryImage.startsWith('/')) {
+    primaryImage = IMAGE_BASE_URL + primaryImage;
+  }
 
   const handleReturn = () => {
     setShowConfirmation(true);
   };
 
-  const handleConfirmReturn = () => {
-    setShowConfirmation(false);
-    navigate("/post-rental-rating/" + id);
+  const handleConfirmReturn = async () => {
+    setIsSubmitting(true);
+    try {
+      await axios.put(`${API_URL}/rental/request-return/${id}`);
+      setShowConfirmation(false);
+      Alert.alert(
+        "✅ Return Request Sent!",
+        "Your return request has been submitted to the owner. Once the owner confirms receipt, the rental will be marked completed.",
+        [
+          { text: "View Status", onPress: () => navigate("/return-status/" + id) }
+        ]
+      );
+    } catch (error) {
+      console.error("Return error, trying fallback status update:", error);
+      try {
+        await axios.put(`${API_URL}/rental/status/${id}`, JSON.stringify("Awaiting_Return"), {
+          headers: { "Content-Type": "application/json" }
+        });
+        setShowConfirmation(false);
+        Alert.alert(
+          "✅ Return Request Sent!",
+          "Your return request has been submitted to the owner.",
+          [
+            { text: "View Status", onPress: () => navigate("/return-status/" + id) }
+          ]
+        );
+      } catch (err2) {
+        Alert.alert("Error", error.response?.data?.message || "Failed to submit return request.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -81,19 +118,22 @@ export default function ReturnProcessScreen() {
             <Text style={styles.sectionTitle}>Product Details</Text>
           </View>
           <View style={styles.productRow}>
-            <Image source={{ uri: rental.product?.primaryImage || "https://images.unsplash.com/photo-1640955014216-75201056c829?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&h=600" }} style={styles.productImg} />
+            <Image source={{ uri: primaryImage }} style={styles.productImg} />
             <View style={styles.productInfo}>
               <Text style={styles.productName}>{rental.product?.title}</Text>
-              <Text style={styles.productPrice}>Rs. {Math.round(pricePerDay).toLocaleString()}/day</Text>
+              <Text style={styles.productPrice}>Rs. {Math.round(pricePerDay).toLocaleString()} / day</Text>
+              {rental.product?.location && (
+                <Text style={styles.productLocation}>📍 {rental.product.location}</Text>
+              )}
             </View>
           </View>
         </View>
 
-        {/* Duration Card */}
+        {/* Duration & Amount Card */}
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
             <Calendar size={20} color="#9333EA" style={{ marginRight: 8 }} />
-            <Text style={styles.sectionTitle}>Rental Duration</Text>
+            <Text style={styles.sectionTitle}>Rental Duration & Payment</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Start Date:</Text>
@@ -106,6 +146,15 @@ export default function ReturnProcessScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Total Days:</Text>
             <Text style={styles.daysValue}>{totalDays} days</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Daily Rate:</Text>
+            <Text style={styles.infoValue}>Rs. {Math.round(pricePerDay).toLocaleString()} / day</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.totalLabel}>Total Amount Paid:</Text>
+            <Text style={styles.totalValue}>Rs. {Math.round(totalAmount).toLocaleString()}</Text>
           </View>
         </View>
 
@@ -121,7 +170,10 @@ export default function ReturnProcessScreen() {
             </View>
             <View>
               <Text style={styles.ownerName}>{rental.owner?.username}</Text>
-              <Text style={styles.ownerRating}>⭐ {rental.ownerRating || 0} Rating</Text>
+              <Text style={styles.ownerRating}>⭐ {(rental.owner?.avgRating || rental.ownerRating || 5).toFixed(1)} Rating</Text>
+              {rental.owner?.city && (
+                <Text style={styles.ownerCity}>📍 {rental.owner.city}</Text>
+              )}
             </View>
           </View>
         </View>
@@ -145,14 +197,22 @@ export default function ReturnProcessScreen() {
           <View style={styles.confirmCard}>
             <Text style={styles.confirmTitle}>Confirm Product Return?</Text>
             <Text style={styles.confirmDesc}>
-              By confirming, you acknowledge that you have returned the product to the owner. The owner will need to confirm receipt.
+              By confirming, you acknowledge that you are returning the product to {rental.owner?.username || "the owner"}. Total rental of Rs. {Math.round(totalAmount).toLocaleString()} was paid. The owner will inspect the product and confirm receipt.
             </Text>
             <View style={styles.confirmActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowConfirmation(false)}>
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.confirmBtnInner} onPress={handleConfirmReturn}>
-                <Text style={styles.confirmText}>Confirm Return</Text>
+              <TouchableOpacity 
+                style={[styles.confirmBtnInner, isSubmitting && { opacity: 0.7 }]} 
+                onPress={handleConfirmReturn}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.confirmText}>Confirm Return</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -243,10 +303,20 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#9333EA",
   },
+  productLocation: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2,
+  },
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 10,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#F3F4F6",
+    marginVertical: 10,
   },
   infoLabel: {
     fontSize: 14,
@@ -261,6 +331,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "bold",
     color: "#9333EA",
+  },
+  totalLabel: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#111827",
+  },
+  totalValue: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#059669",
   },
   ownerRow: {
     flexDirection: "row",
@@ -281,6 +361,11 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
   ownerRating: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2,
+  },
+  ownerCity: {
     fontSize: 12,
     color: "#6B7280",
     marginTop: 2,

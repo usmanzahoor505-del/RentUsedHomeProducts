@@ -7,10 +7,11 @@ import {
   ScrollView,
   StyleSheet,
   Dimensions,
-  SafeAreaView,
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import { useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
@@ -18,8 +19,8 @@ import {
   MapPin,
   Calendar,
   Shield,
-
   Heart,
+  Bell,
   ChevronLeft,
   ChevronRight,
   CalendarCheck,
@@ -31,6 +32,7 @@ import { useUser } from "../context/UserContext";
 
 import axios from "axios";
 import { API_URL, IMAGE_BASE_URL } from "../utils/api";
+import StarRating from "../Components/StarRating";
 
 const { width } = Dimensions.get("window");
 
@@ -39,10 +41,10 @@ export default function ProductDetailScreen() {
   const { id } = useParams();
   
   const { startDate, numberOfDays, hasDatesSelected, getEndDate } = useDateFilter();
-  const { isLoggedIn, user } = useUser();
+  const { isLoggedIn, user, userId } = useUser();
   
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [inWishlist, setInWishlist] = useState(false);
   const [product, setProduct] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAvailableForDates, setIsAvailableForDates] = useState(true);
@@ -52,6 +54,44 @@ export default function ProductDetailScreen() {
   React.useEffect(() => {
     fetchProduct();
   }, [id]);
+
+  React.useEffect(() => {
+    if (isLoggedIn && userId && id) {
+      checkWishlistStatus();
+    }
+  }, [id, userId, isLoggedIn]);
+
+  const checkWishlistStatus = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/wishlist/check/${userId}/${id}`);
+      setInWishlist(res.data.inWishlist);
+    } catch (err) {
+      console.error("Failed to check wishlist status:", err);
+    }
+  };
+
+  const handleToggleWishlist = async () => {
+    if (!isLoggedIn || !userId) {
+      Alert.alert("Login Required", "Please log in to save items to your wishlist.");
+      navigate("/login");
+      return;
+    }
+    try {
+      const res = await axios.post(`${API_URL}/wishlist/toggle`, {
+        userId: userId,
+        productId: parseInt(id),
+        notifyOnAvailable: true,
+      });
+      setInWishlist(res.data.inWishlist);
+      Alert.alert(
+        res.data.inWishlist ? "❤️ Added to Wishlist" : "Removed from Wishlist",
+        res.data.message
+      );
+    } catch (err) {
+      console.error("Failed to toggle wishlist:", err);
+      Alert.alert("Error", "Could not update wishlist.");
+    }
+  };
 
   React.useEffect(() => {
     if (product && hasDatesSelected && endDate) {
@@ -108,6 +148,10 @@ export default function ProductDetailScreen() {
       navigate("/login");
       return;
     }
+    if (isOwner) {
+      Alert.alert("Your Listing", "You cannot rent your own product.");
+      return;
+    }
     if (!hasDatesSelected) {
       Alert.alert("Date Selection Required", "Please select rental dates on the Home screen first.");
       navigate("/home");
@@ -115,6 +159,8 @@ export default function ProductDetailScreen() {
     }
     navigate("/booking/" + product.productId);
   };
+
+  const isOwner = Boolean(isLoggedIn && userId && (product.userId === userId || product.owner?.userId === userId || product.ownerId === userId));
 
   return (
     <View style={styles.container}>
@@ -128,9 +174,9 @@ export default function ProductDetailScreen() {
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.backBtn} 
-          onPress={() => setIsFavorite(!isFavorite)}
+          onPress={handleToggleWishlist}
         >
-          <Heart size={24} color={isFavorite ? "#EF4444" : "#111827"} fill={isFavorite ? "#EF4444" : "none"} />
+          <Heart size={24} color={inWishlist ? "#EF4444" : "#111827"} fill={inWishlist ? "#EF4444" : "none"} />
         </TouchableOpacity>
       </View>
 
@@ -139,7 +185,11 @@ export default function ProductDetailScreen() {
         <View style={styles.carouselContainer}>
           <Image source={{ uri: productImages[currentImageIndex] }} style={styles.mainImage} />
           
-          {hasDatesSelected && (
+          {product.status === "Rented" ? (
+            <View style={[styles.badge, { backgroundColor: "#F59E0B" }]}>
+              <Text style={styles.badgeText}>Currently Rented</Text>
+            </View>
+          ) : hasDatesSelected && (
             <View style={[styles.badge, { backgroundColor: isAvailableForDates ? "#22C55E" : "#EF4444" }]}>
               <Text style={styles.badgeText}>{isAvailableForDates ? "Available" : "Not Available"}</Text>
             </View>
@@ -157,7 +207,19 @@ export default function ProductDetailScreen() {
 
         {/* Product Details */}
         <View style={styles.detailsBox}>
-          {hasDatesSelected && (
+          {product.status === "Rented" ? (
+            <View style={[styles.statusBanner, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
+              <AlertCircle size={20} color="#D97706" />
+              <View style={styles.statusInfo}>
+                <Text style={[styles.statusTitle, { color: "#B45309" }]}>
+                  Currently Rented Out
+                </Text>
+                <Text style={styles.statusDates}>
+                  Add to your Wishlist below to receive an instant alert when it becomes available!
+                </Text>
+              </View>
+            </View>
+          ) : hasDatesSelected && (
             <View style={[styles.statusBanner, { backgroundColor: isAvailableForDates ? "#F0FDF4" : "#FEF2F2", borderColor: isAvailableForDates ? "#DCFCE7" : "#FEE2E2" }]}>
               {isAvailableForDates ? <CalendarCheck size={20} color="#166534" /> : <AlertCircle size={20} color="#991B1B" />}
               <View style={styles.statusInfo}>
@@ -175,9 +237,13 @@ export default function ProductDetailScreen() {
           
           <View style={styles.metaRow}>
             <View style={styles.ratingBox}>
-              <Star size={16} color="#FBBF24" fill="#FBBF24" />
-              <Text style={styles.ratingValue}>{product.avgRating || 0}</Text>
-              <Text style={styles.reviewCount}>(Reviews)</Text>
+              <StarRating
+                rating={product.avgRating || 0}
+                size={15}
+                showValue={true}
+                showCount={true}
+                reviewCount={product.reviewCount || product.reviews?.length || 0}
+              />
             </View>
             <View style={styles.locationBox}>
               <MapPin size={16} color="#6B7280" />
@@ -242,20 +308,119 @@ export default function ProductDetailScreen() {
               <Text style={styles.featureValue}>Owner</Text>
             </View>
           </View>
+
+          {/* Ratings & Customer Reviews Section */}
+          <View style={styles.reviewsSection}>
+            <View style={styles.reviewsSectionHeader}>
+              <Text style={styles.reviewsSectionTitle}>Ratings & Reviews</Text>
+              <View style={styles.reviewBadge}>
+                <Text style={styles.reviewBadgeText}>
+                  {product.reviewCount || product.reviews?.length || 0} {((product.reviewCount || product.reviews?.length || 0) === 1) ? "Review" : "Reviews"}
+                </Text>
+              </View>
+            </View>
+
+            {/* Overall Rating Summary Card */}
+            <View style={styles.ratingSummaryCard}>
+              <Text style={styles.bigRatingScore}>
+                {product.avgRating && product.avgRating > 0 ? product.avgRating.toFixed(1) : "0.0"}
+              </Text>
+              <StarRating
+                rating={product.avgRating || 0}
+                size={20}
+                spacing={3}
+                containerStyle={{ marginTop: 6, marginBottom: 6 }}
+              />
+              <Text style={styles.ratingSubtext}>
+                Based on {product.reviewCount || product.reviews?.length || 0} verified {((product.reviewCount || product.reviews?.length || 0) === 1) ? "review" : "reviews"}
+              </Text>
+            </View>
+
+            {/* Individual Reviews List */}
+            {product.reviews && product.reviews.length > 0 ? (
+              <View style={styles.reviewsList}>
+                {product.reviews.map((rev, idx) => (
+                  <View key={rev.rentalId || idx} style={styles.reviewItemCard}>
+                    <View style={styles.reviewItemHeader}>
+                      <View style={styles.reviewerAvatar}>
+                        <Text style={styles.reviewerAvatarText}>
+                          {(rev.renterName || "R")[0]?.toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={styles.reviewerNameRow}>
+                          <Text style={styles.reviewerNameText}>
+                            {rev.renterName || "Verified Renter"}
+                          </Text>
+                          <Text style={styles.verifiedTag}>Verified Renter</Text>
+                        </View>
+                        <Text style={styles.reviewDateText}>
+                          {rev.endDate ? format(new Date(rev.endDate), "MMM dd, yyyy") : "Recent"}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Star Rating for this review */}
+                    <View style={styles.reviewStarsRow}>
+                      <StarRating
+                        rating={rev.productRating || 5}
+                        size={13}
+                        showValue={true}
+                      />
+                    </View>
+
+                    {/* Review text */}
+                    {rev.productReview ? (
+                      <Text style={styles.reviewCommentText}>
+                        "{rev.productReview}"
+                      </Text>
+                    ) : (
+                      <Text style={styles.noCommentText}>
+                        Left a {rev.productRating || 5}-star rating without additional comments.
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.noReviewsBox}>
+                <Star size={32} color="#D1D5DB" fill="#F3F4F6" style={{ marginBottom: 8 }} />
+                <Text style={styles.noReviewsTitle}>No Reviews Yet</Text>
+                <Text style={styles.noReviewsSubtitle}>
+                  This product has not received any reviews yet. Rent it and be the first to share your experience!
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
       </ScrollView>
 
       {/* Footer Button */}
       <SafeAreaView style={styles.footer}>
-        <TouchableOpacity 
-          style={[styles.bookBtn, (!isAvailableForDates && hasDatesSelected) && styles.disabledBtn]}
-          onPress={handleBooking}
-          disabled={hasDatesSelected && !isAvailableForDates}
-        >
-          <Text style={styles.bookBtnText}>
-            {!isLoggedIn ? "Sign In to Book" : !hasDatesSelected ? "Select Dates to Book" : isAvailableForDates ? "Book Now" : "Not Available"}
-          </Text>
-        </TouchableOpacity>
+        {isOwner ? (
+          <View style={[styles.bookBtn, { backgroundColor: "#6B7280" }]}>
+            <Text style={styles.bookBtnText}>Your Listed Product</Text>
+          </View>
+        ) : (!isAvailableForDates && hasDatesSelected) || product.status !== "Available" ? (
+          <TouchableOpacity 
+            style={[styles.bookBtn, styles.notifyBtn]}
+            onPress={handleToggleWishlist}
+          >
+            <Bell size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.bookBtnText}>
+              {inWishlist ? "In Wishlist (Alert Active)" : "Notify Me When Available"}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity 
+            style={styles.bookBtn}
+            onPress={handleBooking}
+          >
+            <Text style={styles.bookBtnText}>
+              {!isLoggedIn ? "Sign In to Book" : !hasDatesSelected ? "Select Dates to Book" : "Book Now"}
+            </Text>
+          </TouchableOpacity>
+        )}
       </SafeAreaView>
     </View>
   );
@@ -568,5 +733,152 @@ const styles = StyleSheet.create({
     backgroundColor: "#D1D5DB",
     shadowOpacity: 0,
     elevation: 0,
+  },
+  notifyBtn: {
+    backgroundColor: "#7C3AED",
+    flexDirection: "row",
+  },
+  reviewsSection: {
+    marginTop: 28,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+    paddingTop: 22,
+  },
+  reviewsSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  reviewsSectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#111827",
+  },
+  reviewBadge: {
+    backgroundColor: "#F3E8FF",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  reviewBadgeText: {
+    color: "#9333EA",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  ratingSummaryCard: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 16,
+    padding: 18,
+    alignItems: "center",
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  bigRatingScore: {
+    fontSize: 38,
+    fontWeight: "900",
+    color: "#111827",
+  },
+  ratingSubtext: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2,
+  },
+  reviewsList: {
+    gap: 12,
+  },
+  reviewItemCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+    marginBottom: 10,
+  },
+  reviewItemHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  reviewerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#9333EA",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  reviewerAvatarText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  reviewerNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  reviewerNameText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  verifiedTag: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#16A34A",
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  reviewDateText: {
+    fontSize: 11,
+    color: "#9CA3AF",
+    marginTop: 1,
+  },
+  reviewStarsRow: {
+    marginBottom: 8,
+  },
+  reviewCommentText: {
+    fontSize: 13,
+    color: "#374151",
+    lineHeight: 18,
+    backgroundColor: "#F9FAFB",
+    padding: 10,
+    borderRadius: 8,
+    fontStyle: "italic",
+  },
+  noCommentText: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    fontStyle: "italic",
+  },
+  noReviewsBox: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  noReviewsTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#374151",
+    marginBottom: 4,
+  },
+  noReviewsSubtitle: {
+    fontSize: 13,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 18,
   },
 });

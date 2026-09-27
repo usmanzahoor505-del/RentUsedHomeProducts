@@ -5,9 +5,9 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
   Dimensions,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigate, useParams } from "react-router";
 import { CheckCircle, Clock, Star, ArrowRight } from "lucide-react-native";
 

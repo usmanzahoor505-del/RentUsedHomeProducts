@@ -24,6 +24,8 @@ import {
   Phone,
   CreditCard,
   ChevronDown,
+  Truck,
+  Bike,
 } from "lucide-react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useUser } from "../context/UserContext";
@@ -47,7 +49,21 @@ const pakistaniCities = [
 
 export default function LoginScreen() {
   const navigate = useNavigate();
-  const { setUserCity, setUserName, setUserPhone, setUserCnic, setIsLoggedIn, setUserEmail, setToken, setUserId } = useUser();
+  const { 
+    setUserCity, 
+    setUserName, 
+    setUserPhone, 
+    setUserCnic, 
+    setIsLoggedIn, 
+    setUserEmail, 
+    setToken, 
+    setUserId,
+    userRole,
+    setUserRole,
+    setVehicleType,
+    setVehiclePlate,
+    setIsOnline,
+  } = useUser();
 
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -60,6 +76,9 @@ export default function LoginScreen() {
   const [phone, setPhone] = useState("");
   const [cnic, setCnic] = useState("");
   const [city, setCity] = useState("Karachi");
+  const [role, setRole] = useState("Customer"); // "Customer" or "Courier"
+  const [vehicleType, setVehicleTypeLocal] = useState("Motorcycle");
+  const [vehiclePlate, setVehiclePlateLocal] = useState("");
 
   const handleSubmit = async () => {
     if (!email || !password) {
@@ -69,6 +88,11 @@ export default function LoginScreen() {
 
     if (!isLogin && (!name || !phone || !city)) {
       Alert.alert("Error", "Please fill in all registration fields");
+      return;
+    }
+
+    if (!isLogin && role === "Courier" && !vehiclePlate.trim()) {
+      Alert.alert("Error", "Please enter your vehicle registration plate number");
       return;
     }
 
@@ -84,7 +108,10 @@ export default function LoginScreen() {
           password,
           PhoneNo: phone,
           city,
-          cnic: cnic
+          cnic: cnic,
+          role: role,
+          vehicleType: role === "Courier" ? vehicleType : null,
+          vehiclePlate: role === "Courier" ? vehiclePlate.trim() : null,
         };
 
       const fullUrl = API_URL + endpoint;
@@ -98,20 +125,37 @@ export default function LoginScreen() {
       console.log("=== AUTH RESPONSE ===", JSON.stringify(userData));
 
       // Save all data to Context
-      setUserCity(userData.city);
-      setUserName(userData.username);
-      setUserPhone(userData.phone);
-      setUserEmail(userData.email);
-      setToken(userData.token);
-      setAuthToken(userData.token);
-      setUserId(userData.userId);
+      if (userData.city) setUserCity(userData.city);
+      if (userData.username) setUserName(userData.username);
+      if (userData.phone) setUserPhone(userData.phone);
+      if (userData.email) setUserEmail(userData.email);
+      if (userData.token) {
+        setToken(userData.token);
+        setAuthToken(userData.token);
+      }
+      if (userData.userId) setUserId(userData.userId);
       if (cnic) setUserCnic(cnic);
+
+      const activeRole = userData.role || role || "Customer";
+      setUserRole(activeRole);
+      if (userData.vehicleType || (role === "Courier" && vehicleType)) {
+        setVehicleType(userData.vehicleType || vehicleType);
+      }
+      if (userData.vehiclePlate || (role === "Courier" && vehiclePlate)) {
+        setVehiclePlate(userData.vehiclePlate || vehiclePlate.trim());
+      }
+      if (userData.isOnline !== undefined) {
+        setIsOnline(userData.isOnline);
+      }
 
       // setIsLoggedIn last mein — ye state update baaqi sab ke baad
       setIsLoggedIn(true);
 
-      // Direct navigate — Alert mat dikhao (isLoggedIn true hone se screen switch hoti hai)
-      navigate("/home");
+      if (activeRole === "Courier") {
+        navigate("/courier-home");
+      } else {
+        navigate("/home");
+      }
 
     } catch (error) {
       console.error("=== AUTH ERROR ===", error?.response?.status, error?.response?.data, error?.message);
@@ -130,7 +174,7 @@ export default function LoginScreen() {
           errorMessage = `Server Error (${status})`;
         }
       } else if (error.request) {
-        errorMessage = `Cannot reach server.\n\nURL: ${API_URL}\n\nMake sure backend is running on port 5255.`;
+        errorMessage = `Cannot reach server.\n\nTarget URL: ${API_URL}\n\nPlease verify:\n1. Backend is running.\n2. If connected via USB, run: adb reverse tcp:5257 tcp:5257\n3. If on Wi-Fi, ensure PC & phone are on the same network.`;
       } else {
         errorMessage = error.message;
       }
@@ -194,6 +238,32 @@ export default function LoginScreen() {
             <View style={styles.inputStack}>
               {!isLogin && (
                 <>
+                  <View style={styles.roleContainer}>
+                    <Text style={styles.roleLabel}>Register As</Text>
+                    <View style={styles.roleRow}>
+                      <TouchableOpacity
+                        style={[styles.roleOption, role === "Customer" && styles.roleOptionActive]}
+                        onPress={() => setRole("Customer")}
+                        activeOpacity={0.8}
+                      >
+                        <User size={16} color={role === "Customer" ? "#FFFFFF" : "#6B7280"} />
+                        <Text style={[styles.roleOptionText, role === "Customer" && styles.roleOptionTextActive]}>
+                          Customer
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.roleOption, role === "Courier" && styles.roleOptionActive]}
+                        onPress={() => setRole("Courier")}
+                        activeOpacity={0.8}
+                      >
+                        <Truck size={16} color={role === "Courier" ? "#FFFFFF" : "#6B7280"} />
+                        <Text style={[styles.roleOptionText, role === "Courier" && styles.roleOptionTextActive]}>
+                          Delivery Rider
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
                   <View style={styles.inputWrapper}>
                     <User style={styles.inputIcon} size={20} color="#9CA3AF" />
                     <TextInput
@@ -227,6 +297,35 @@ export default function LoginScreen() {
                       placeholderTextColor="#9CA3AF"
                     />
                   </View>
+
+                  {role === "Courier" && (
+                    <>
+                      <View style={[styles.inputWrapper, { paddingRight: 10 }]}>
+                        <Bike style={styles.inputIcon} size={20} color="#9CA3AF" />
+                        <Picker
+                          selectedValue={vehicleType}
+                          onValueChange={(itemValue) => setVehicleTypeLocal(itemValue)}
+                          style={styles.picker}
+                        >
+                          <Picker.Item label="Motorcycle (Bike)" value="Motorcycle" />
+                          <Picker.Item label="Car / Sedan" value="Car" />
+                          <Picker.Item label="Suzuki / Pickup Van" value="Van" />
+                        </Picker>
+                      </View>
+
+                      <View style={styles.inputWrapper}>
+                        <Truck style={styles.inputIcon} size={20} color="#9CA3AF" />
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Vehicle Plate No (e.g. ICT-1234)"
+                          value={vehiclePlate}
+                          onChangeText={setVehiclePlateLocal}
+                          placeholderTextColor="#9CA3AF"
+                          autoCapitalize="characters"
+                        />
+                      </View>
+                    </>
+                  )}
                 </>
               )}
 
@@ -445,5 +544,48 @@ const styles = StyleSheet.create({
     color: "#4B5563",
     fontSize: 16,
     fontWeight: "600",
+  },
+  roleContainer: {
+    marginBottom: 6,
+  },
+  roleLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#4B5563",
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  roleRow: {
+    flexDirection: "row",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 14,
+    padding: 4,
+    gap: 6,
+  },
+  roleOption: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
+  },
+  roleOptionActive: {
+    backgroundColor: "#9333EA",
+    shadowColor: "#9333EA",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  roleOptionText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  roleOptionTextActive: {
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
 });

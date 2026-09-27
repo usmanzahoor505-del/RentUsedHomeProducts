@@ -6,14 +6,15 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, Star, MapPin, Calendar, Package, User } from "lucide-react-native";
 
 import axios from "axios";
 import { API_URL } from "../utils/api";
+import StarRating from "../Components/StarRating";
 
 export default function VendorProfileScreen() {
   const navigate = useNavigate();
@@ -148,8 +149,11 @@ export default function VendorProfileScreen() {
                   <View style={styles.listProductInfo}>
                     <Text style={styles.listProductName} numberOfLines={1}>{product.title}</Text>
                     <View style={styles.listRatingRow}>
-                      <Star size={12} color="#FBBF24" fill="#FBBF24" />
-                      <Text style={styles.listRatingText}>{product.avgRating || 0}</Text>
+                      <StarRating
+                        rating={product.avgRating || 0}
+                        size={12}
+                        showValue={true}
+                      />
                     </View>
                     <Text style={styles.listProductPrice}>Rs. {product.pricePerDay}</Text>
                   </View>
@@ -169,8 +173,11 @@ export default function VendorProfileScreen() {
                   <View style={styles.reviewHeader}>
                     <Text style={styles.reviewerName}>{review.renterName}</Text>
                     <View style={styles.reviewRating}>
-                      <Star size={14} color="#FBBF24" fill="#FBBF24" />
-                      <Text style={styles.reviewRatingValue}>{review.productRating}</Text>
+                      <StarRating
+                        rating={review.productRating || 5}
+                        size={13}
+                        showValue={true}
+                      />
                     </View>
                   </View>
                   <Text style={styles.reviewComment}>{review.productReview || "No comment."}</Text>
@@ -190,8 +197,11 @@ export default function VendorProfileScreen() {
                   <View style={styles.reviewHeader}>
                     <Text style={styles.reviewerName}>{review.ownerName} (Owner)</Text>
                     <View style={styles.reviewRating}>
-                      <Star size={14} color="#FBBF24" fill="#FBBF24" />
-                      <Text style={styles.reviewRatingValue}>{review.renterRating}</Text>
+                      <StarRating
+                        rating={review.renterRating || 5}
+                        size={13}
+                        showValue={true}
+                      />
                     </View>
                   </View>
                   <Text style={styles.reviewComment}>{review.renterReview || "No comment."}</Text>

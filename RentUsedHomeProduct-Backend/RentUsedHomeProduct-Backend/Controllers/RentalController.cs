@@ -47,7 +47,8 @@ namespace RentUsedHomeProduct_Backend.Controllers
                     r.OwnerRating,
                     r.RenterRating,
                     r.ProductReview,
-                    r.RenterReview
+                    r.RenterReview,
+                    r.OwnerReview
                 })
                 .ToListAsync();
 
@@ -63,23 +64,73 @@ namespace RentUsedHomeProduct_Backend.Controllers
         {
             var rental = await _context.Rentals
                 .Include(r => r.Product)
+                    .ThenInclude(p => p.ProductImages)
                 .Include(r => r.Owner)
                 .Include(r => r.Renter)
                 .Where(r => r.RentalId == id)
                 .Select(r => new
                 {
                     r.RentalId,
-                    Product = new { r.Product.ProductId, r.Product.Title },
-                    Owner = new { r.Owner.UserId, r.Owner.Username },
-                    Renter = new { r.Renter.UserId, r.Renter.Username },
+                    Product = new { 
+                        r.Product.ProductId, 
+                        r.Product.Title,
+                        r.Product.PricePerDay,
+                        r.Product.Location,
+                        PrimaryImage = r.Product.ProductImages.Where(img => img.IsPrimary).Select(img => img.ImageUrl).FirstOrDefault() ?? r.Product.ProductImages.Select(img => img.ImageUrl).FirstOrDefault()
+                    },
+                    Owner = new { 
+                        r.Owner.UserId, 
+                        r.Owner.Username,
+                        r.Owner.City,
+                        PhoneNumber = r.Owner.PhoneNo,
+                        r.Owner.Email,
+                        AvgRating = r.Owner.AvgOwnerRating
+                    },
+                    Renter = new { 
+                        r.Renter.UserId, 
+                        r.Renter.Username,
+                        r.Renter.City,
+                        PhoneNumber = r.Renter.PhoneNo,
+                        r.Renter.Email,
+                        AvgRating = r.Renter.AvgRenterRating
+                    },
                     r.StartDate,
                     r.EndDate,
+                    r.TotalAmount,
                     r.Status,
+                    r.DeliveryOption,
+                    r.DeliveryFee,
+                    Delivery = r.Delivery != null ? new
+                    {
+                        r.Delivery.DeliveryId,
+                        r.Delivery.Status,
+                        r.Delivery.PickupAddress,
+                        r.Delivery.PickupLatitude,
+                        r.Delivery.PickupLongitude,
+                        r.Delivery.DropoffAddress,
+                        r.Delivery.DropoffLatitude,
+                        r.Delivery.DropoffLongitude,
+                        r.Delivery.DeliveryFee,
+                        r.Delivery.PickupOtp,
+                        r.Delivery.DropoffOtp,
+                        r.Delivery.ConditionPhotos,
+                        r.Delivery.CourierLatitude,
+                        r.Delivery.CourierLongitude,
+                        Courier = r.Delivery.Courier != null ? new
+                        {
+                            r.Delivery.Courier.UserId,
+                            r.Delivery.Courier.Username,
+                            r.Delivery.Courier.PhoneNo,
+                            r.Delivery.Courier.VehicleType,
+                            r.Delivery.Courier.VehiclePlate
+                        } : null
+                    } : null,
                     r.ProductRating,
                     r.OwnerRating,
                     r.RenterRating,
                     r.ProductReview,
-                    r.RenterReview
+                    r.RenterReview,
+                    r.OwnerReview
                 })
                 .FirstOrDefaultAsync();
 
@@ -119,7 +170,8 @@ namespace RentUsedHomeProduct_Backend.Controllers
                     r.Status,
                     r.ProductRating,
                     r.OwnerRating,
-                    r.ProductReview
+                    r.ProductReview,
+                    r.OwnerReview
                 })
                 .ToListAsync();
 
@@ -241,6 +293,9 @@ namespace RentUsedHomeProduct_Backend.Controllers
             var totalDays = (dto.EndDate - dto.StartDate).Days;
             if (totalDays <= 0) totalDays = 1; // Minimum 1 day charge
 
+            var isDelivery = dto.DeliveryOption == "CourierDelivery";
+            var deliveryFee = isDelivery ? (dto.DeliveryFee ?? 250m) : 0m;
+
             var rental = new Rental
             {
                 ProductId = dto.ProductId,
@@ -248,14 +303,70 @@ namespace RentUsedHomeProduct_Backend.Controllers
                 RenterId = dto.RenterId,
                 StartDate = dto.StartDate,
                 EndDate = dto.EndDate,
-                TotalAmount = product.PricePerDay * totalDays, // Auto calculate
+                DeliveryOption = isDelivery ? "CourierDelivery" : "SelfPickup",
+                DeliveryFee = deliveryFee,
+                TotalAmount = (product.PricePerDay * totalDays) + deliveryFee,
                 Status = "Pending"
             };
 
             _context.Rentals.Add(rental);
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Rental booked successfully!", rentalId = rental.RentalId });
+            if (isDelivery)
+            {
+                var owner = await _context.Users.FindAsync(dto.OwnerId);
+                var renter = await _context.Users.FindAsync(dto.RenterId);
+
+                var rand = new Random();
+                var pickupOtp = rand.Next(1000, 9999).ToString();
+                var dropoffOtp = rand.Next(1000, 9999).ToString();
+
+                var delivery = new Delivery
+                {
+                    RentalId = rental.RentalId,
+                    Status = "Pending",
+                    PickupAddress = !string.IsNullOrWhiteSpace(product.Location) ? product.Location : $"{owner?.City}, Pakistan",
+                    PickupLatitude = owner?.CurrentLatitude,
+                    PickupLongitude = owner?.CurrentLongitude,
+                    DropoffAddress = !string.IsNullOrWhiteSpace(dto.DeliveryAddress) ? dto.DeliveryAddress : $"{renter?.City}, Pakistan",
+                    DropoffLatitude = dto.DeliveryLat ?? renter?.CurrentLatitude,
+                    DropoffLongitude = dto.DeliveryLng ?? renter?.CurrentLongitude,
+                    DeliveryFee = deliveryFee,
+                    PickupOtp = pickupOtp,
+                    DropoffOtp = dropoffOtp,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Deliveries.Add(delivery);
+                await _context.SaveChangesAsync();
+            }
+
+            return Ok(new { 
+                message = "Rental booked successfully!", 
+                rentalId = rental.RentalId,
+                deliveryOption = rental.DeliveryOption,
+                deliveryFee = rental.DeliveryFee
+            });
+        }
+
+        // =====================
+        // REQUEST RETURN (By Renter)
+        // PUT: api/rental/request-return/1
+        // =====================
+        [HttpPut("request-return/{id}")]
+        public async Task<IActionResult> RequestReturn(int id)
+        {
+            var rental = await _context.Rentals.FindAsync(id);
+            if (rental == null)
+                return NotFound(new { message = "Rental not found!" });
+
+            if (rental.Status != "Active" && rental.Status != "Awaiting_Return")
+                return BadRequest(new { message = "Only active rentals can be returned!" });
+
+            rental.Status = "Awaiting_Return";
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Return request sent to owner for confirmation!", status = "Awaiting_Return" });
         }
 
         // =====================
@@ -263,29 +374,58 @@ namespace RentUsedHomeProduct_Backend.Controllers
         // PUT: api/rentals/status/1
         // =====================
         [HttpPut("status/{id}")]
-        public async Task<IActionResult> UpdateStatus(int id, [FromBody] string status)
+        public async Task<IActionResult> UpdateStatus(int id, [FromBody] System.Text.Json.JsonElement body)
         {
             var rental = await _context.Rentals.FindAsync(id);
             if (rental == null)
                 return NotFound(new { message = "Rental not found!" });
 
-            var validStatuses = new[] { "Pending", "Active", "Awaiting_Return", "Completed", "Cancelled" };
-            if (!validStatuses.Contains(status))
-                return BadRequest(new { message = "Invalid status! Valid: Pending, Active, Awaiting_Return, Completed, Cancelled" });
+            string? statusStr = null;
+            if (body.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                statusStr = body.GetString();
+            }
+            else if (body.ValueKind == System.Text.Json.JsonValueKind.Object && body.TryGetProperty("status", out var prop))
+            {
+                statusStr = prop.GetString();
+            }
 
-            rental.Status = status;
+            if (string.IsNullOrWhiteSpace(statusStr))
+                return BadRequest(new { message = "Status cannot be empty!" });
+
+            // Normalize status case-insensitively
+            string normalizedStatus;
+            if (string.Equals(statusStr, "Pending", StringComparison.OrdinalIgnoreCase)) normalizedStatus = "Pending";
+            else if (string.Equals(statusStr, "Active", StringComparison.OrdinalIgnoreCase)) normalizedStatus = "Active";
+            else if (string.Equals(statusStr, "Awaiting_Return", StringComparison.OrdinalIgnoreCase) || string.Equals(statusStr, "AwaitingReturn", StringComparison.OrdinalIgnoreCase) || string.Equals(statusStr, "ReturnRequested", StringComparison.OrdinalIgnoreCase)) normalizedStatus = "Awaiting_Return";
+            else if (string.Equals(statusStr, "Completed", StringComparison.OrdinalIgnoreCase)) normalizedStatus = "Completed";
+            else if (string.Equals(statusStr, "Cancelled", StringComparison.OrdinalIgnoreCase)) normalizedStatus = "Cancelled";
+            else
+                return BadRequest(new { message = $"Invalid status '{statusStr}'! Valid: Pending, Active, Awaiting_Return, Completed, Cancelled" });
+
+            rental.Status = normalizedStatus;
 
             // Sync with Product Status
             var product = await _context.Products.FindAsync(rental.ProductId);
+            bool becameAvailable = false;
             if (product != null)
             {
-                if (status == "Active") product.Status = "Rented";
-                else if (status == "Cancelled") product.Status = "Available";
+                if (normalizedStatus == "Active") product.Status = "Rented";
+                else if (normalizedStatus == "Cancelled" || normalizedStatus == "Completed")
+                {
+                    product.Status = "Available";
+                    becameAvailable = true;
+                }
             }
 
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = $"Rental status updated to {status}!" });
+            if (becameAvailable && product != null)
+            {
+                await NotifyWishlistUsersOfAvailability(product.ProductId, product.Title);
+            }
+
+            return Ok(new { message = $"Rental status updated to {normalizedStatus}!", status = normalizedStatus });
         }
 
         // =====================
@@ -299,8 +439,8 @@ namespace RentUsedHomeProduct_Backend.Controllers
             if (rental == null)
                 return NotFound(new { message = "Rental not found!" });
 
-            if (rental.Status != "Completed")
-                return BadRequest(new { message = "You can only rate after rental is completed!" });
+            if (rental.Status != "Completed" && rental.Status != "Return_Approved")
+                return BadRequest(new { message = "You can only rate after rental return is completed or approved!" });
 
             if (dto.ProductRating < 1 || dto.ProductRating > 5)
                 return BadRequest(new { message = "Product rating must be between 1 and 5!" });
@@ -312,6 +452,7 @@ namespace RentUsedHomeProduct_Backend.Controllers
             rental.ProductRating = dto.ProductRating;
             rental.ProductReview = dto.ProductReview;
             rental.OwnerRating = dto.OwnerRating;
+            rental.OwnerReview = dto.OwnerReview;
             await _context.SaveChangesAsync();
 
             // Step 2: Owner ki average rating update karo
@@ -319,14 +460,20 @@ namespace RentUsedHomeProduct_Backend.Controllers
                 .Where(r => r.OwnerId == rental.OwnerId && r.OwnerRating > 0)
                 .AverageAsync(r => r.OwnerRating);
             var owner = await _context.Users.FindAsync(rental.OwnerId);
-            owner.AvgOwnerRating = (double)avgOwnerRating;
+            if (owner != null)
+            {
+                owner.AvgOwnerRating = Math.Round((double)avgOwnerRating, 1);
+            }
 
             // Step 3: Product ki average rating update karo
             var avgProductRating = await _context.Rentals
                 .Where(r => r.ProductId == rental.ProductId && r.ProductRating > 0)
                 .AverageAsync(r => r.ProductRating);
             var product = await _context.Products.FindAsync(rental.ProductId);
-            product.AvgRating = (double)avgProductRating;
+            if (product != null)
+            {
+                product.AvgRating = Math.Round((double)avgProductRating, 1);
+            }
 
             // Step 4: Sab ek saath save karo
             await _context.SaveChangesAsync();
@@ -362,6 +509,26 @@ namespace RentUsedHomeProduct_Backend.Controllers
 
             await _context.SaveChangesAsync();
 
+            // Trigger notification for users who have this product in their wishlist
+            if (product != null)
+            {
+                await NotifyWishlistUsersOfAvailability(product.ProductId, product.Title);
+            }
+
+            // Recalculate Renter's average rating in Users table
+            if (dto.RenterRating > 0)
+            {
+                var avgRenterRating = await _context.Rentals
+                    .Where(r => r.RenterId == rental.RenterId && r.RenterRating > 0)
+                    .AverageAsync(r => r.RenterRating);
+                var renter = await _context.Users.FindAsync(rental.RenterId);
+                if (renter != null)
+                {
+                    renter.AvgRenterRating = Math.Round((double)avgRenterRating, 1);
+                }
+                await _context.SaveChangesAsync();
+            }
+
             return Ok(new { message = "Return confirmed, product is now Available!" });
         }
 
@@ -380,6 +547,47 @@ namespace RentUsedHomeProduct_Backend.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Rental deleted successfully!" });
+        }
+
+        // =====================
+        // HELPER: Notify users who have wishlisted this product
+        // =====================
+        private async Task NotifyWishlistUsersOfAvailability(int productId, string? productTitle)
+        {
+            try
+            {
+                var waitingUsers = await _context.Wishlists
+                    .Where(w => w.ProductId == productId && w.NotifyOnAvailable)
+                    .Select(w => w.UserId)
+                    .Distinct()
+                    .ToListAsync();
+
+                if (!waitingUsers.Any())
+                    return;
+
+                var title = "Item Back in Stock!";
+                var message = $"Good news! '{productTitle ?? "An item on your wishlist"}' is now available for rent. Tap to view and book it now!";
+
+                foreach (var userId in waitingUsers)
+                {
+                    _context.Notifications.Add(new Notification
+                    {
+                        UserId = userId,
+                        ProductId = productId,
+                        Title = title,
+                        Message = message,
+                        Type = "Availability",
+                        IsRead = false,
+                        CreatedAt = DateTime.Now
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error notifying wishlist users for product {productId}: {ex.Message}");
+            }
         }
     }
 }

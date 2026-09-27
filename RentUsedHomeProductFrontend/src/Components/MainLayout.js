@@ -7,7 +7,7 @@ export default function MainLayout() {
   const location = useLocation();
   
   // List of screens where bottom tab should be visible
-  const showTabScreens = ["/home", "/add-product", "/chat-selection", "/profile"];
+  const showTabScreens = ["/home", "/add-product", "/my-adds", "/profile"];
   const shouldShowTab = showTabScreens.includes(location.pathname);
 
   return (
