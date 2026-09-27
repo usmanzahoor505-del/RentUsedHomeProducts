@@ -859,6 +859,26 @@ This document records all prompts and instructions provided by the user in this 
   7. Fixed model nullability in `Rental.cs`, `User.cs`, and `Product.cs` preventing `SqlNullValueException`.
   8. Rebuilt backend with 0 errors and tested all endpoints (`/api/users/login`, `/api/products`, `/api/deliveries/available`).
 
+---
+
+### Prompt 47
+- **Timestamp**: 2026-09-27T21:23:09+05:00
+- **Prompt**:
+  ```text
+  6: Could not copy "C:\Users\ABUZAR\Desktop\RentUsedProducts\RentUsedHomeProduct-Backend\RentUsedHomeProduct-Backend\obj\Debug\net8.0\apphost.exe" to "bin\Debug\net8.0\RentUsedHomeProduct-Backend.exe". Beginning retry 3 in 1000ms. The process cannot access the file 'C:\Users\ABUZAR\Desktop\RentUsedProducts\RentUsedHomeProduct-Backend\RentUsedHomeProduct-Backend\bin\Debug\net8.0\RentUsedHomeProduct-Backend.exe' because it is being used by another process. The file is locked by: "RentUsedHomeProduct-Backend (24876)"
+  ...
+  The build failed. Fix the build errors and run again.
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. Identified root cause: An existing backend instance (PID 24876) was actively running and executing `RentUsedHomeProduct-Backend.exe`. Windows enforces an exclusive file lock on running `.exe` binaries, which blocks `dotnet build` from overwriting the binary.
+  3. Terminated the locking process using `taskkill /F /IM RentUsedHomeProduct-Backend.exe`.
+  4. Executed `dotnet build` cleanly with 0 warnings and 0 errors in 2.24s.
+  5. Enhanced `run_backend.bat` (and copied to Desktop) with an automated pre-flight routine that automatically kills any orphaned backend process before compiling, preventing `MSB3021 / MSB3027` file lock collisions permanently.
+  6. Created `C:\Users\ABUZAR\Desktop\stop_backend.bat` for easy 1-click stopping of the server.
+  7. Restarted backend cleanly on `http://0.0.0.0:5257` and verified all endpoints responsive.
+
+
 
 
 
