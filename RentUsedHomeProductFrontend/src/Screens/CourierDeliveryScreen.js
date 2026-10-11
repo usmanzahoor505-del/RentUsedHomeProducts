@@ -36,11 +36,12 @@ const { width } = Dimensions.get("window");
 export default function CourierDeliveryScreen() {
   const navigate = useNavigate();
   const { id } = useParams(); // deliveryId
-  const { userId, userName } = useUser();
+  const { userId, userName, courierLat, courierLng, setCourierLat, setCourierLng } = useUser();
 
   const [delivery, setDelivery] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isGpsStreaming, setIsGpsStreaming] = useState(true);
 
   // Form Inputs
   const [pickupOtpInput, setPickupOtpInput] = useState("");
@@ -60,14 +61,15 @@ export default function CourierDeliveryScreen() {
     // Auto-stream GPS periodically
     const interval = setInterval(() => {
       streamLiveLocation();
-    }, 12000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [id]);
 
   const fetchDeliveryDetails = async () => {
     try {
       const res = await api.get(`/deliveries/${id}`);
-      setDelivery(res.data.delivery);
+      const del = res.data?.delivery || res.data;
+      setDelivery(del);
     } catch (error) {
       console.error("Failed to load delivery details:", error);
       Alert.alert("Error", "Could not load delivery details.");
@@ -76,19 +78,37 @@ export default function CourierDeliveryScreen() {
     }
   };
 
-  const streamLiveLocation = async () => {
+  const streamLiveLocation = async (customLat, customLng) => {
     if (!delivery || delivery.status === "Delivered") return;
+    const lat = customLat || courierLat || delivery.courierLatitude || delivery.pickupLatitude || 33.5973;
+    const lng = customLng || courierLng || delivery.courierLongitude || delivery.pickupLongitude || 73.0479;
     try {
-      // Simulate moving rider coords or use current coords
-      const lat = delivery.pickupLatitude ? delivery.pickupLatitude + (Math.random() - 0.5) * 0.005 : 33.5973;
-      const lng = delivery.pickupLongitude ? delivery.pickupLongitude + (Math.random() - 0.5) * 0.005 : 73.0479;
       await api.post(`/deliveries/${id}/location`, {
         latitude: lat,
         longitude: lng,
       });
+      if (userId) {
+        await api.put(`/users/${userId}/location`, {
+          latitude: lat,
+          longitude: lng,
+        });
+      }
     } catch (e) {
       // Background non-critical
     }
+  };
+
+  const handleWebViewMessage = (event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === "LIVE_COURIER_GPS" && data.lat && data.lng) {
+        const lat = parseFloat(data.lat);
+        const lng = parseFloat(data.lng);
+        setCourierLat(lat);
+        setCourierLng(lng);
+        streamLiveLocation(lat, lng);
+      }
+    } catch (e) {}
   };
 
   const handleCall = (phoneNumber) => {
@@ -232,6 +252,16 @@ export default function CourierDeliveryScreen() {
             L.marker([${riderLat}, ${riderLng}])
           ]);
           map.fitBounds(group.getBounds().pad(0.3));
+
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(pos) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'LIVE_COURIER_GPS',
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude
+              }));
+            }, function(err) {}, { enableHighAccuracy: true });
+          }
         </script>
       </body>
     </html>
@@ -292,6 +322,8 @@ export default function CourierDeliveryScreen() {
             source={{ html: mapHtml }}
             style={{ width: "100%", height: 180 }}
             scrollEnabled={false}
+            geolocationEnabled={true}
+            onMessage={handleWebViewMessage}
           />
         </View>
 

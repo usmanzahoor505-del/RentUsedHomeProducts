@@ -28,11 +28,12 @@ import {
   User,
   ShieldCheck,
   ChevronRight,
+  Edit3,
 } from "lucide-react-native";
 import { WebView } from "react-native-webview";
 import { useUser } from "../context/UserContext";
 import api, { API_URL } from "../utils/api";
-import { getCityCoords } from "../utils/locationUtils";
+import { getCityCoords, requestLocationPermission } from "../utils/locationUtils";
 
 const { width } = Dimensions.get("window");
 
@@ -45,6 +46,10 @@ export default function CourierHomeScreen() {
     userPhone, 
     vehicleType, 
     vehiclePlate, 
+    courierLat: contextLat,
+    setCourierLat: setContextLat,
+    courierLng: contextLng,
+    setCourierLng: setContextLng,
     isOnline, 
     setIsOnline, 
     setIsLoggedIn,
@@ -52,8 +57,9 @@ export default function CourierHomeScreen() {
   } = useUser();
 
   const cityCoords = getCityCoords(userCity);
-  const [courierLat, setCourierLat] = useState(cityCoords.latitude);
-  const [courierLng, setCourierLng] = useState(cityCoords.longitude);
+  const [courierLat, setCourierLat] = useState(contextLat || cityCoords.latitude);
+  const [courierLng, setCourierLng] = useState(contextLng || cityCoords.longitude);
+  const [isGpsActive, setIsGpsActive] = useState(false);
 
   const [availableDeliveries, setAvailableDeliveries] = useState([]);
   const [activeDelivery, setActiveDelivery] = useState(null);
@@ -64,26 +70,32 @@ export default function CourierHomeScreen() {
   const webViewRef = useRef(null);
 
   useEffect(() => {
-    fetchCourierData();
+    initGpsAndFetch();
   }, [userCity, userId]);
 
-  const fetchCourierData = async () => {
+  const initGpsAndFetch = async () => {
+    try {
+      await requestLocationPermission();
+    } catch(e) {}
+    fetchCourierData(courierLat, courierLng);
+  };
+
+  const fetchCourierData = async (latArg, lngArg) => {
     setIsLoading(true);
+    const activeLat = latArg !== undefined ? latArg : courierLat;
+    const activeLng = lngArg !== undefined ? lngArg : courierLng;
     try {
       // 1. Fetch available deliveries near this city / coordinates
       const resAvail = await api.get(
-        `/deliveries/available?lat=${courierLat}&lng=${courierLng}&city=${userCity || "Rawalpindi"}`
+        `/deliveries/available?lat=${activeLat}&lng=${activeLng}&city=${userCity || "Rawalpindi"}`
       );
       setAvailableDeliveries(resAvail.data || []);
 
       // 2. Fetch active delivery for this courier
       if (userId) {
         const resActive = await api.get(`/deliveries/active/${userId}`);
-        if (resActive.data?.hasActive) {
-          setActiveDelivery(resActive.data.delivery);
-        } else {
-          setActiveDelivery(null);
-        }
+        const act = resActive.data?.hasActive ? (resActive.data.delivery || resActive.data) : null;
+        setActiveDelivery(act);
       }
     } catch (error) {
       console.error("Failed to load courier data:", error);
@@ -95,7 +107,40 @@ export default function CourierHomeScreen() {
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchCourierData();
+    fetchCourierData(courierLat, courierLng);
+  };
+
+  const handleRecalibrateGps = async () => {
+    try {
+      const granted = await requestLocationPermission();
+      if (granted && webViewRef.current) {
+        webViewRef.current.reload();
+      }
+      fetchCourierData(courierLat, courierLng);
+    } catch(e) {}
+  };
+
+  const handleWebViewMessage = async (event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === "LIVE_COURIER_GPS" && data.lat && data.lng) {
+        const lat = parseFloat(data.lat);
+        const lng = parseFloat(data.lng);
+        setCourierLat(lat);
+        setCourierLng(lng);
+        setIsGpsActive(true);
+        if (setContextLat) setContextLat(lat);
+        if (setContextLng) setContextLng(lng);
+
+        if (userId) {
+          await api.put(`/users/${userId}/location`, {
+            latitude: lat,
+            longitude: lng,
+          });
+        }
+        fetchCourierData(lat, lng);
+      }
+    } catch(err) {}
   };
 
   const handleToggleOnline = async (val) => {
@@ -204,6 +249,17 @@ export default function CourierHomeScreen() {
 
           // Available Deliveries Markers
           ${markersJs}
+
+          // Live Device GPS Acquisition
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(pos) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'LIVE_COURIER_GPS',
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude
+              }));
+            }, function(err) {}, { enableHighAccuracy: true });
+          }
         </script>
       </body>
     </html>
@@ -214,7 +270,11 @@ export default function CourierHomeScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <View style={styles.riderProfileRow}>
+          <TouchableOpacity
+            style={styles.riderProfileRow}
+            onPress={() => navigate("/courier-info")}
+            activeOpacity={0.8}
+          >
             <View style={styles.riderAvatar}>
               <Truck size={22} color="#FFFFFF" />
             </View>
@@ -231,11 +291,22 @@ export default function CourierHomeScreen() {
                 </Text>
               </View>
             </View>
-          </View>
-
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-            <LogOut size={18} color="#EF4444" />
           </TouchableOpacity>
+
+          <View style={styles.headerRightActions}>
+            <TouchableOpacity 
+              style={styles.vehicleInfoBtn} 
+              onPress={() => navigate("/courier-info")}
+              activeOpacity={0.8}
+            >
+              <Edit3 size={13} color="#9333EA" style={{ marginRight: 4 }} />
+              <Text style={styles.vehicleInfoBtnText}>Vehicle & Info</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+              <LogOut size={18} color="#EF4444" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Online Status & Customer Switch Bar */}
@@ -252,10 +323,17 @@ export default function CourierHomeScreen() {
             />
           </View>
 
-          <View style={styles.riderVehicleBadge}>
+          <TouchableOpacity
+            style={styles.riderVehicleBadge}
+            onPress={() => navigate("/courier-info")}
+            activeOpacity={0.8}
+          >
             <Truck size={14} color="#9333EA" style={{ marginRight: 4 }} />
-            <Text style={styles.riderVehicleText}>{vehicleType || "Motorcycle"}{vehiclePlate ? ` • ${vehiclePlate}` : ""}</Text>
-          </View>
+            <Text style={styles.riderVehicleText}>
+              {vehicleType || "Motorcycle"}{vehiclePlate ? ` • ${vehiclePlate}` : ""}
+            </Text>
+            <ChevronRight size={13} color="#9333EA" style={{ marginLeft: 2 }} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -307,8 +385,11 @@ export default function CourierHomeScreen() {
               <MapPin size={16} color="#9333EA" />
               <Text style={styles.mapTitle}>Nearby Delivery Radar ({userCity || "Rawalpindi"})</Text>
             </View>
-            <TouchableOpacity style={styles.refreshMapBtn} onPress={handleRefresh}>
-              <RefreshCw size={14} color="#6B7280" />
+            <TouchableOpacity style={styles.gpsSyncBtn} onPress={handleRecalibrateGps} activeOpacity={0.8}>
+              <Navigation size={12} color="#10B981" style={{ marginRight: 4 }} />
+              <Text style={styles.gpsSyncText}>
+                {isGpsActive ? `Live GPS (${courierLat.toFixed(2)}, ${courierLng.toFixed(2)})` : "Calibrate GPS"}
+              </Text>
             </TouchableOpacity>
           </View>
           <View style={styles.webViewWrap}>
@@ -319,6 +400,7 @@ export default function CourierHomeScreen() {
               style={styles.webView}
               scrollEnabled={false}
               geolocationEnabled={true}
+              onMessage={handleWebViewMessage}
             />
           </View>
         </View>
@@ -499,6 +581,26 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontWeight: "500",
   },
+  headerRightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  vehicleInfoBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3E8FF",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E9D5FF",
+  },
+  vehicleInfoBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#9333EA",
+  },
   logoutBtn: {
     width: 38,
     height: 38,
@@ -506,6 +608,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEE2E2",
     justifyContent: "center",
     alignItems: "center",
+  },
+  gpsSyncBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ECFDF5",
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+  },
+  gpsSyncText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#065F46",
   },
   statusBar: {
     flexDirection: "row",

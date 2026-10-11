@@ -30,6 +30,7 @@ import NotificationsScreen from "./src/Screens/NotificationsScreen";
 import CourierHomeScreen from "./src/Screens/CourierHomeScreen";
 import CourierDeliveryScreen from "./src/Screens/CourierDeliveryScreen";
 import DeliveryTrackingScreen from "./src/Screens/DeliveryTrackingScreen";
+import CourierInfoScreen from "./src/Screens/CourierInfoScreen";
 
 
 function NativeErrorBoundary() {
@@ -107,6 +108,7 @@ export const router = createMemoryRouter([
       { path: "notifications", Component: NotificationsScreen },
 
       { path: "courier-home", Component: CourierHomeScreen },
+      { path: "courier-info", Component: CourierInfoScreen },
       { path: "courier-delivery/:id", Component: CourierDeliveryScreen },
       { path: "delivery-tracking/:id", Component: DeliveryTrackingScreen },
     ],

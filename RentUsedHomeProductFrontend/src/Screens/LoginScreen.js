@@ -91,11 +91,6 @@ export default function LoginScreen() {
       return;
     }
 
-    if (!isLogin && role === "Courier" && !vehiclePlate.trim()) {
-      Alert.alert("Error", "Please enter your vehicle registration plate number");
-      return;
-    }
-
     setLoading(true);
     try {
       // Backend controller: UsersController → api/users/login or api/users/register
@@ -103,15 +98,15 @@ export default function LoginScreen() {
       const payload = isLogin
         ? { email: email.trim(), password }
         : {
-          username: name,
+          username: name.trim(),
           email: email.trim(),
           password,
-          PhoneNo: phone,
+          PhoneNo: phone.trim(),
           city,
-          cnic: cnic,
+          cnic: cnic ? cnic.trim() : null,
           role: role,
           vehicleType: role === "Courier" ? vehicleType : null,
-          vehiclePlate: role === "Courier" ? vehiclePlate.trim() : null,
+          vehiclePlate: role === "Courier" && vehiclePlate ? vehiclePlate.trim() : null,
         };
 
       const fullUrl = API_URL + endpoint;
@@ -134,15 +129,15 @@ export default function LoginScreen() {
         setAuthToken(userData.token);
       }
       if (userData.userId) setUserId(userData.userId);
-      if (cnic) setUserCnic(cnic);
+      if (cnic || userData.cnic) setUserCnic(userData.cnic || cnic);
 
       const activeRole = userData.role || role || "Customer";
       setUserRole(activeRole);
-      if (userData.vehicleType || (role === "Courier" && vehicleType)) {
-        setVehicleType(userData.vehicleType || vehicleType);
+      if (userData.vehicleType) {
+        setVehicleType(userData.vehicleType);
       }
-      if (userData.vehiclePlate || (role === "Courier" && vehiclePlate)) {
-        setVehiclePlate(userData.vehiclePlate || vehiclePlate.trim());
+      if (userData.vehiclePlate) {
+        setVehiclePlate(userData.vehiclePlate);
       }
       if (userData.isOnline !== undefined) {
         setIsOnline(userData.isOnline);
@@ -152,7 +147,13 @@ export default function LoginScreen() {
       setIsLoggedIn(true);
 
       if (activeRole === "Courier") {
-        navigate("/courier-home");
+        if (!isLogin) {
+          // After signing up as Courier: Go to dedicated Profile & Vehicle Info screen
+          navigate("/courier-info");
+        } else {
+          // Logged in as Courier
+          navigate("/courier-home");
+        }
       } else {
         navigate("/home");
       }
@@ -264,6 +265,18 @@ export default function LoginScreen() {
                     </View>
                   </View>
 
+                  {role === "Courier" && (
+                    <View style={styles.courierNoticeBox}>
+                      <Truck size={20} color="#9333EA" />
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={styles.courierNoticeTitle}>Delivery Courier Account</Text>
+                        <Text style={styles.courierNoticeText}>
+                          Sign up below with your credentials. After signup, you'll review your info and set up your vehicle details.
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
                   <View style={styles.inputWrapper}>
                     <User style={styles.inputIcon} size={20} color="#9CA3AF" />
                     <TextInput
@@ -297,35 +310,6 @@ export default function LoginScreen() {
                       placeholderTextColor="#9CA3AF"
                     />
                   </View>
-
-                  {role === "Courier" && (
-                    <>
-                      <View style={[styles.inputWrapper, { paddingRight: 10 }]}>
-                        <Bike style={styles.inputIcon} size={20} color="#9CA3AF" />
-                        <Picker
-                          selectedValue={vehicleType}
-                          onValueChange={(itemValue) => setVehicleTypeLocal(itemValue)}
-                          style={styles.picker}
-                        >
-                          <Picker.Item label="Motorcycle (Bike)" value="Motorcycle" />
-                          <Picker.Item label="Car / Sedan" value="Car" />
-                          <Picker.Item label="Suzuki / Pickup Van" value="Van" />
-                        </Picker>
-                      </View>
-
-                      <View style={styles.inputWrapper}>
-                        <Truck style={styles.inputIcon} size={20} color="#9CA3AF" />
-                        <TextInput
-                          style={styles.input}
-                          placeholder="Vehicle Plate No (e.g. ICT-1234)"
-                          value={vehiclePlate}
-                          onChangeText={setVehiclePlateLocal}
-                          placeholderTextColor="#9CA3AF"
-                          autoCapitalize="characters"
-                        />
-                      </View>
-                    </>
-                  )}
                 </>
               )}
 
@@ -587,5 +571,26 @@ const styles = StyleSheet.create({
   roleOptionTextActive: {
     color: "#FFFFFF",
     fontWeight: "700",
+  },
+  courierNoticeBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FAF5FF",
+    borderWidth: 1,
+    borderColor: "#E9D5FF",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  courierNoticeTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#7C3AED",
+    marginBottom: 2,
+  },
+  courierNoticeText: {
+    fontSize: 12,
+    color: "#6B7280",
+    lineHeight: 16,
   },
 });

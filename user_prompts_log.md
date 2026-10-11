@@ -1053,12 +1053,33 @@ This document records all prompts and instructions provided by the user in this 
   3. Formulated detailed point-by-point breakdown showing 1:1 parity and outlining potential UI enhancements for user confirmation before making any code modifications.
 
 
+---
 
-
-
-
-
-
-
-
-
+### Prompt 54
+- **Timestamp**: 2026-10-12T00:33:39+05:00
+- **Prompt**:
+  ```text
+  go and check courier side all flow not work properly check and sign up from same as user sign up but its tell the courier and after sign up its shows information its self and about vehicle and for whole use current location of the user gps allow
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. **Unified Courier Sign Up Flow** (`LoginScreen.js`):
+     - Integrated Courier role selection inside the standard sign-up form with a clear badge/notice explaining the Courier account creation.
+     - Kept user credential inputs clean and consistent with regular user registration.
+     - Configured post-signup routing so new couriers are immediately transitioned to the dedicated Courier Profile & Vehicle setup screen (`/courier-info`).
+  3. **Dedicated Courier Profile & Vehicle Information Screen** (`CourierInfoScreen.js`):
+     - Created a comprehensive onboarding screen at `/courier-info` registered in `routes.js`.
+     - **About Yourself**: Displays and allows editing full name, phone number, CNIC, operating city, and registered email.
+     - **About Your Vehicle**: Interactive vehicle selector chips (Motorcycle, Car / Sedan, Rickshaw, Pickup Van) and license plate number input (e.g. `RWP-7788`).
+     - **Live Device GPS**: Device GPS permission request and high-accuracy coordinate calibration (`Latitude`, `Longitude`).
+     - Direct button to save and launch the Courier Home Dashboard.
+  4. **Backend API Enhancements**:
+     - Added `UpdateCourierInfoDto` in `DeliveryDtos.cs`.
+     - Added `PUT /api/users/{id}/courier-info` in `UserController.cs` to update courier profile, vehicle type, vehicle plate, and live GPS coordinates.
+     - Fixed `RentalController.cs` to reliably set delivery `PickupLatitude` and `PickupLongitude` from `product.Latitude ?? owner?.CurrentLatitude`.
+     - Inserted active pending deliveries in SQL Server for live testing.
+  5. **Device GPS Permission & Real Location Throughout the Flow**:
+     - Updated `locationUtils.js` with `requestLocationPermission` and `calculateDistanceKm`.
+     - Enhanced `CourierHomeScreen.js` with live GPS locking, 1-tap GPS recalibration button, "Vehicle & Info" header button to view/edit details anytime, and real-time proximity sorting for available delivery jobs.
+     - Fixed `CourierDeliveryScreen.js` delivery data loader (`res.data.delivery || res.data`) and replaced random coordinates with live device GPS streaming.
+  6. Successfully verified `.NET` backend running on port 5257 and Android debug APK build via `./gradlew assembleDebug` (BUILD SUCCESSFUL).

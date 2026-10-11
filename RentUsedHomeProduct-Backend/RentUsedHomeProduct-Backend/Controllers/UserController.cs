@@ -246,6 +246,53 @@ namespace RentUsedHomeProduct_Backend.Controllers
         }
 
         // =====================
+        // UPDATE COURIER PROFILE & VEHICLE INFO
+        // PUT: api/users/{id}/courier-info
+        // =====================
+        [HttpPut("{id}/courier-info")]
+        public async Task<IActionResult> UpdateCourierInfo(int id, [FromBody] UpdateCourierInfoDto dto)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null) return NotFound(new { message = "User not found!" });
+
+            if (!string.IsNullOrWhiteSpace(dto.Username)) user.Username = dto.Username.Trim();
+            if (!string.IsNullOrWhiteSpace(dto.PhoneNo)) user.PhoneNo = dto.PhoneNo.Trim();
+            if (!string.IsNullOrWhiteSpace(dto.City)) user.City = dto.City.Trim();
+            if (!string.IsNullOrWhiteSpace(dto.CNIC)) user.CNIC = dto.CNIC.Trim();
+            if (!string.IsNullOrWhiteSpace(dto.VehicleType)) user.VehicleType = dto.VehicleType.Trim();
+            if (!string.IsNullOrWhiteSpace(dto.VehiclePlate)) user.VehiclePlate = dto.VehiclePlate.Trim().ToUpper();
+
+            user.Role = "Courier";
+            user.IsOnline = true;
+
+            if (dto.Latitude.HasValue && dto.Longitude.HasValue)
+            {
+                user.CurrentLatitude = dto.Latitude.Value;
+                user.CurrentLongitude = dto.Longitude.Value;
+                user.LastLocationUpdated = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Courier profile and vehicle info updated successfully!",
+                userId = user.UserId,
+                username = user.Username,
+                email = user.Email,
+                city = user.City,
+                phone = user.PhoneNo,
+                cnic = user.CNIC,
+                role = user.Role,
+                vehicleType = user.VehicleType,
+                vehiclePlate = user.VehiclePlate,
+                isOnline = user.IsOnline,
+                currentLatitude = user.CurrentLatitude,
+                currentLongitude = user.CurrentLongitude
+            });
+        }
+
+        // =====================
         // JWT Token Generate
         // =====================
         private string GenerateJwtToken(User user)

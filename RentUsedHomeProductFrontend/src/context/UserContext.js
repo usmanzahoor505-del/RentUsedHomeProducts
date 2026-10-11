@@ -12,9 +12,17 @@ export const UserProvider = ({ children }) => {
   const [vehicleType, setVehicleType] = useState('Motorcycle');
   const [vehiclePlate, setVehiclePlate] = useState('');
   const [isOnline, setIsOnline] = useState(true);
+  const [courierLat, setCourierLat] = useState(33.5973);
+  const [courierLng, setCourierLng] = useState(73.0479);
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [token, setToken] = useState(null);
   const [userId, setUserId] = useState(14);
+
+  const logout = () => {
+    setIsLoggedIn(false);
+    setToken(null);
+    setUserRole('Customer');
+  };
 
   return (
     <UserContext.Provider
@@ -35,6 +43,10 @@ export const UserProvider = ({ children }) => {
         setVehicleType,
         vehiclePlate,
         setVehiclePlate,
+        courierLat,
+        setCourierLat,
+        courierLng,
+        setCourierLng,
         isOnline,
         setIsOnline,
         isLoggedIn,
@@ -43,6 +55,7 @@ export const UserProvider = ({ children }) => {
         setToken,
         userId,
         setUserId,
+        logout,
       }}
     >
       {children}

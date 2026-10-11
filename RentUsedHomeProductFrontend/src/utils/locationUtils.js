@@ -76,17 +76,36 @@ export const requestLocationPermission = async () => {
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         {
           title: "Location Permission",
-          message: "RentUsed needs access to your location to find nearby products and pinpoint your address.",
+          message: "Easy Rent needs access to your device GPS location to show nearby delivery jobs and track deliveries.",
           buttonNeutral: "Ask Me Later",
           buttonNegative: "Cancel",
           buttonPositive: "Allow",
         }
       );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
+      return (
+        granted === PermissionsAndroid.RESULTS.GRANTED ||
+        granted === true
+      );
     } catch (err) {
       console.warn("Location permission error:", err);
       return false;
     }
   }
   return true;
+};
+
+// Haversine formula distance calculation in kilometers
+export const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180.0;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180.0;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180.0) *
+      Math.cos((lat2 * Math.PI) / 180.0) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
 };

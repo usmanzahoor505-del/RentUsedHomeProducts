@@ -28,4 +28,16 @@ namespace RentUsedHomeProduct_Backend.DTOs
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
     }
+
+    public class UpdateCourierInfoDto
+    {
+        public string? Username { get; set; }
+        public string? PhoneNo { get; set; }
+        public string? City { get; set; }
+        public string? CNIC { get; set; }
+        public string? VehicleType { get; set; }
+        public string? VehiclePlate { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+    }
 }
