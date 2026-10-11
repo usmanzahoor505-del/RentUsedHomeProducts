@@ -986,6 +986,73 @@ This document records all prompts and instructions provided by the user in this 
   4. Successfully rebuilt debug Android APK with Gradle (`./gradlew assembleDebug` - BUILD SUCCESSFUL in 22s).
   5. Verified backend server remains actively running and healthy on ports 5257 and 5255.
 
+---
+
+### Prompt 53
+- **Timestamp**: 2026-10-11T23:55:50+05:00
+- **Prompt**:
+  ```text
+  #### 1. Interactive Pinpoint Location & Radius Selector for Listing Owners
+    • New View: LocationPickerMapView.swift
+    • Features:
+        • Draggable Apple Map Pin: Owners can drop and adjust a map pin to their exact home or pickup location.
+        • Pickup Radius Selector: Owners choose their coverage/pickup radius: 2 km, 3 km, or 4 km.
+        • Visual Radius Overlay: A purple semi-transparent coverage circle dynamically renders around the pin,
+        displaying the exact pickup zone.
+        • Preset Area Chips: Instant selection for major neighborhoods (e.g., Saddar, Rawalpindi, Bahria Town,
+        Westridge, F-10, Islamabad, Blue Area, Gulberg, Lahore, Clifton, Karachi).
+        • Address & GPS Coordinates Confirmation: Displays reverse-geocoded address, latitude, and longitude before
+        confirmation.
+    • Listing Flow Integration: Added to AddProductView.swift. Saves latitude, longitude, location, and radius with the
+    listing.
+    ──────
+    #### 2. Interactive GPS Map Radar & Nearby Explorer for Renters
+    • New View: NearbyMapExplorerView.swift
+    • Features:
+        • Interactive Product Pins: Displays products as custom annotations with their price tag (e.g., Rs 400/day).
+        • Radius Radar Ring: Renders the active distance boundary circle (2 km, 3 km, 4 km) around the user's city
+        location.
+        • Top Radius Filter Pills: Toggle between All, 2 km, 3 km, and 4 km with live pin filtering.
+        • Interactive Preview Card: Tapping any pin displays the item's thumbnail, title, distance (e.g., 📍 1.4 km
+        away • Saddar), price/day, and a direct button to open ProductDetailView.
+
+    ──────
+    #### 3. Home Screen Radius Filter Bar & Distance Badges
+
+    • Search Header & Map Launch:
+        • In HomeView.swift, added a map button (map.fill) next to the search filter button to open
+        NearbyMapExplorerView in 1 tap.
+    • Radius Quick-Filter Pills:
+        • Positioned right below the search bar: All Radius, 📍 2 km Near, 📍 3 km Near, and 📍 4 km Near.
+    • Distance Badges on Product Cards:
+        • Each product card in the marketplace displays its live distance:
+          📍 1.4 km • Saddar, Rawalpindi
+
+    • Filter Sheet Integration:
+        • In FilterView.swift, added a dedicated Nearby GPS Radius section with All, 2 km, 3 km, and 4 km pills.
+
+    ──────
+    #### 4. Distance Calculation Engine & Geocoding
+
+    • Updated: Models.swift:385
+    • Spherical Haversine Formula:
+
+                     ⎛ ⎛    ⎛Δlat⎞                           ⎛Δlon⎞⎞⎞
+      d = 2R · arcsin⎜√⎜sin²⎜────⎟ + cos(lat₁) cos(lat₂) sin²⎜────⎟⎟⎟  (R = 6371 km)
+                     ⎝ ⎝    ⎝ 2  ⎠                           ⎝ 2  ⎠⎠⎠
+
+    • Filtering & Nearest Sorting:
+        • In HomeViewModel.swift:68, filteredProducts filters items where distance <= selectedRadius and sorts listings
+        nearest-first.
+
+    ────── this is my ios apply the logic of location see that logic tell me ours not change anything before
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. Performed comprehensive architectural comparison between iOS specifications and the current Android / React Native / .NET backend implementation.
+  3. Formulated detailed point-by-point breakdown showing 1:1 parity and outlining potential UI enhancements for user confirmation before making any code modifications.
+
+
 
 
 
