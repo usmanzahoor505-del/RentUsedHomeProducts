@@ -1195,3 +1195,21 @@ This document records all prompts and instructions provided by the user in this 
      - **Wishlist System**: Database schema (`Wishlists`), backend API endpoints (`WishlistController.cs`), automated stock return notifications (`RentalController.cs`), and frontend screens (`WishlistScreen.js`, `ProductDetailScreen.js`).
      - **Map & GPS Distance System**: Backend Haversine calculations (`ProductController.cs`), multi-tier Android 12+ location resolver (`locationUtils.js`), Leaflet interactive WebView component (`LocationMapPicker.js`), and live nearby radius search on `HomeScreen.js`.
 
+---
+
+### Prompt 61
+- **Timestamp**: 2026-10-12T11:06:49+05:00
+- **Prompt**:
+  ```text
+  you have to decribe me each and every line of that objective go for it
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. Provided exhaustive, line-by-line, code-by-code explanation across every single line of:
+     - `WishlistController.cs` (every line from 1 to 142)
+     - `WishlistScreen.js` (every line from 1 to 218)
+     - `locationUtils.js` (every line from 72 to 168)
+     - `LocationMapPicker.js` (every line of location/map logic)
+     - `HomeScreen.js` (every line of distance search & nearby filtering)
+  3. Committed and pushed to GitHub repository (`origin/main`).
+
