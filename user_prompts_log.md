@@ -1230,4 +1230,36 @@ This document records all prompts and instructions provided by the user in this 
      - **Tiered Hybrid Architecture**: Clarified that it acts as the initial real-time bridge while high-accuracy GPS refinement runs in parallel.
   3. Committed and pushed to GitHub repository (`origin/main`).
 
+---
+
+### Prompt 63
+- **Timestamp**: 2026-10-12T12:08:22+05:00
+- **Prompt**:
+  ```text
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180.0;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180.0;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180.0) *
+      Math.cos((lat2 * Math.PI) / 180.0) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10; explain this
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. Provided complete mathematical and code-level breakdown of the Haversine formula:
+     - Why flat Pythagoras distance fails on Earth due to spherical curvature and longitude convergence.
+     - Line 1: Null guard check preventing invalid math.
+     - Line 2: Mean radius of Earth $R = 6371$ km.
+     - Lines 3-4: Degree-to-radian conversion ($(\Delta \times \pi)/180$).
+     - Lines 5-10: Square of half the chord length ($a = \sin^2(\Delta \phi/2) + \cos(\phi_1)\cos(\phi_2)\sin^2(\Delta \lambda/2)$).
+     - Line 11: Angular distance in radians ($c = 2 \cdot \text{atan2}(\sqrt{a}, \sqrt{1-a})$).
+     - Line 12: Arc distance scaling ($d = R \cdot c$) and clean 1-decimal rounding (`Math.round(x * 10) / 10`).
+  3. Committed and pushed to GitHub repository (`origin/main`).
+
+
 
