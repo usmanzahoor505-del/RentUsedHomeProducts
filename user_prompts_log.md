@@ -1213,3 +1213,21 @@ This document records all prompts and instructions provided by the user in this 
      - `HomeScreen.js` (every line of distance search & nearby filtering)
   3. Committed and pushed to GitHub repository (`origin/main`).
 
+---
+
+### Prompt 62
+- **Timestamp**: 2026-10-12T11:57:53+05:00
+- **Prompt**:
+  ```text
+  http://ip-api.com/json why this is use in that
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. Provided in-depth explanation of why `http://ip-api.com/json` is used in `locationUtils.js`:
+     - **Speed & Latency**: Hardware GPS takes 15–45 seconds to get satellite lock (and frequently times out indoors), whereas IP Geolocation returns exact city/region coordinates in 200–300ms.
+     - **Indoor & Device Settings Independence**: If user is inside a room/building, or has disabled hardware GPS toggles in Android settings, hardware GPS fails completely with "could not fetch GPS". IP Geolocation works transparently over active Wi-Fi / cellular data.
+     - **Zero Permission / Zero Friction**: Does not depend on Android native location modules or permission popups to immediately display nearby products with calculated distances.
+     - **Tiered Hybrid Architecture**: Clarified that it acts as the initial real-time bridge while high-accuracy GPS refinement runs in parallel.
+  3. Committed and pushed to GitHub repository (`origin/main`).
+
+
