@@ -1180,3 +1180,18 @@ This document records all prompts and instructions provided by the user in this 
      - Verified Android build via Gradle (`BUILD SUCCESSFUL in 23s`).
      - Installed updated APK onto connected device (`HMGEAENV5HMBNNEM`) and launched `MainActivity`.
      - Committed and pushed to GitHub repository (`origin/main`).
+
+---
+
+### Prompt 60
+- **Timestamp**: 2026-10-12T10:52:27+05:00
+- **Prompt**:
+  ```text
+  now our new objective understand me step by step code by code line by line wishlist ur map all functionality
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. Prepared and delivered comprehensive, line-by-line, architectural and code-level walkthrough of both systems:
+     - **Wishlist System**: Database schema (`Wishlists`), backend API endpoints (`WishlistController.cs`), automated stock return notifications (`RentalController.cs`), and frontend screens (`WishlistScreen.js`, `ProductDetailScreen.js`).
+     - **Map & GPS Distance System**: Backend Haversine calculations (`ProductController.cs`), multi-tier Android 12+ location resolver (`locationUtils.js`), Leaflet interactive WebView component (`LocationMapPicker.js`), and live nearby radius search on `HomeScreen.js`.
+
