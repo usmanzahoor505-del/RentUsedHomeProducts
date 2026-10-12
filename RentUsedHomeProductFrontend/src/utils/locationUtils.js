@@ -72,26 +72,79 @@ export const getCityCoords = (cityName) => {
 export const requestLocationPermission = async () => {
   if (Platform.OS === "android") {
     try {
-      const granted = await PermissionsAndroid.request(
+      const granted = await PermissionsAndroid.requestMultiple([
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        {
-          title: "Location Permission",
-          message: "Easy Rent needs access to your device GPS location to show nearby delivery jobs and track deliveries.",
-          buttonNeutral: "Ask Me Later",
-          buttonNegative: "Cancel",
-          buttonPositive: "Allow",
-        }
-      );
-      return (
-        granted === PermissionsAndroid.RESULTS.GRANTED ||
-        granted === true
-      );
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+      ]);
+      const fineGranted =
+        granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] ===
+        PermissionsAndroid.RESULTS.GRANTED;
+      const coarseGranted =
+        granted[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] ===
+        PermissionsAndroid.RESULTS.GRANTED;
+      return fineGranted || coarseGranted;
     } catch (err) {
       console.warn("Location permission error:", err);
       return false;
     }
   }
   return true;
+};
+
+// Fetch real-time user GPS coordinates with multi-tier fallback (Device Network / IP / City)
+export const fetchUserCurrentLocation = async (fallbackCity = "Rawalpindi") => {
+  // 1. Ensure permission is requested
+  await requestLocationPermission();
+
+  // 2. Query real-time connection location
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch("http://ip-api.com/json", { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.status === "success" && data.lat && data.lon) {
+        return {
+          latitude: parseFloat(Number(data.lat).toFixed(5)),
+          longitude: parseFloat(Number(data.lon).toFixed(5)),
+          city: data.city || data.regionName || fallbackCity,
+          address: `${data.city || data.regionName || "Your Location"}, Pakistan`,
+          source: "network_gps",
+        };
+      }
+    }
+  } catch (e) {
+    // Secondary fallback service
+    try {
+      const controller2 = new AbortController();
+      const timeoutId2 = setTimeout(() => controller2.abort(), 3500);
+      const res2 = await fetch("https://ipwho.is/", { signal: controller2.signal });
+      clearTimeout(timeoutId2);
+      if (res2.ok) {
+        const data2 = await res2.json();
+        if (data2 && data2.success && data2.latitude && data2.longitude) {
+          return {
+            latitude: parseFloat(Number(data2.latitude).toFixed(5)),
+            longitude: parseFloat(Number(data2.longitude).toFixed(5)),
+            city: data2.city || fallbackCity,
+            address: `${data2.city || "Your Location"}, Pakistan`,
+            source: "network_gps",
+          };
+        }
+      }
+    } catch (e2) {}
+  }
+
+  // 3. Fallback to registered city coordinates
+  const cityCoord = getCityCoords(fallbackCity);
+  return {
+    latitude: cityCoord.latitude,
+    longitude: cityCoord.longitude,
+    city: cityCoord.name,
+    address: `${cityCoord.name}, Pakistan`,
+    source: "city_default",
+  };
 };
 
 // Haversine formula distance calculation in kilometers

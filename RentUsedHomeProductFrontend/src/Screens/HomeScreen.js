@@ -43,7 +43,11 @@ import axios from "axios";
 import { API_URL, IMAGE_BASE_URL } from "../utils/api";
 import LocationMapPicker from "../Components/LocationMapPicker";
 import StarRating from "../Components/StarRating";
-import { getCityCoords } from "../utils/locationUtils";
+import {
+  getCityCoords,
+  fetchUserCurrentLocation,
+  calculateDistanceKm,
+} from "../utils/locationUtils";
 
 const { width } = Dimensions.get("window");
 
@@ -93,6 +97,31 @@ export default function HomeScreen() {
   const [searchLat, setSearchLat] = useState(initialCoords.latitude);
   const [searchLng, setSearchLng] = useState(initialCoords.longitude);
   const [searchLocationName, setSearchLocationName] = useState(userCity || initialCoords.name);
+  const [isGpsActive, setIsGpsActive] = useState(false);
+  const [isGpsLoading, setIsGpsLoading] = useState(false);
+
+  // Proactively fetch real-time GPS location of user
+  const initializeUserLocation = async (triggerFetch = true) => {
+    setIsGpsLoading(true);
+    try {
+      const loc = await fetchUserCurrentLocation(userCity || "Rawalpindi");
+      if (loc && loc.latitude && loc.longitude) {
+        setSearchLat(loc.latitude);
+        setSearchLng(loc.longitude);
+        setSearchLocationName(loc.address || `${loc.city}, Pakistan`);
+        setIsGpsActive(true);
+        if (triggerFetch) {
+          fetchProducts(nearbyFilterActive, searchRadiusKm, loc.latitude, loc.longitude);
+        }
+        return loc;
+      }
+    } catch (e) {
+      console.warn("GPS initialization error:", e);
+    } finally {
+      setIsGpsLoading(false);
+    }
+    return null;
+  };
 
   // Fetch products once on mount & when city changes
   useEffect(() => {
@@ -100,7 +129,10 @@ export default function HomeScreen() {
     setSearchLat(coords.latitude);
     setSearchLng(coords.longitude);
     setSearchLocationName(userCity || coords.name);
-    fetchProducts();
+    // Initial fetch with city coordinates
+    fetchProducts(nearbyFilterActive, searchRadiusKm, coords.latitude, coords.longitude);
+    // Automatically acquire live GPS in background to calculate live distances
+    initializeUserLocation(true);
     if (isLoggedIn && userId) {
       fetchUnreadNotifications();
     }
@@ -115,22 +147,39 @@ export default function HomeScreen() {
     }
   };
 
-  const fetchProducts = async (useNearby = nearbyFilterActive, radius = searchRadiusKm, lat = searchLat, lng = searchLng) => {
+  const fetchProducts = async (
+    useNearby = nearbyFilterActive,
+    radius = searchRadiusKm,
+    lat = searchLat,
+    lng = searchLng
+  ) => {
     setIsLoading(true);
     try {
       let url = `${API_URL}/products`;
-      if (useNearby && lat && lng) {
-        url = `${API_URL}/products?lat=${lat}&lng=${lng}&radiusKm=${radius}`;
+      if (lat && lng) {
+        url = `${API_URL}/products?lat=${lat}&lng=${lng}` + (useNearby && radius ? `&radiusKm=${radius}` : "");
       }
       const res = await axios.get(url);
       const all = res.data || [];
 
+      // Calculate real distance for every product using user's coordinates
+      const withDistance = all.map((p) => {
+        let dist = p.distanceKm;
+        if ((dist === undefined || dist === null) && lat && lng && p.latitude && p.longitude) {
+          dist = calculateDistanceKm(lat, lng, p.latitude, p.longitude);
+        }
+        return {
+          ...p,
+          distanceKm: dist,
+        };
+      });
+
       if (useNearby) {
-        setCityProducts(all);
+        setCityProducts(withDistance);
       } else {
         const currentCity = (userCity || "Rawalpindi").trim().toLowerCase();
         // Filter by city: match product location OR owner city
-        const inCity = all.filter((p) => {
+        const inCity = withDistance.filter((p) => {
           if (!currentCity || currentCity === "all" || currentCity === "all cities") return true;
           const prodLoc = (p.location || "").trim().toLowerCase();
           const ownerCity = (p.owner?.city || "").trim().toLowerCase();
@@ -327,7 +376,12 @@ export default function HomeScreen() {
         <View style={styles.nearbyFilterBar}>
           <TouchableOpacity
             style={[styles.mapFilterBtn, nearbyFilterActive && styles.mapFilterBtnActive]}
-            onPress={() => setShowMapFilter(true)}
+            onPress={async () => {
+              if (!isGpsActive) {
+                initializeUserLocation(false);
+              }
+              setShowMapFilter(true);
+            }}
           >
             <MapPin size={13} color={nearbyFilterActive ? "#FFFFFF" : "#9333EA"} style={{ marginRight: 4 }} />
             <Text style={[styles.mapFilterBtnText, nearbyFilterActive && styles.mapFilterBtnTextActive]}>
@@ -336,11 +390,28 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.nearbyChipsRow}>
+            {/* Live GPS Acquisition & Status Badge Button */}
+            <TouchableOpacity
+              style={[styles.gpsBadgeBtn, isGpsActive && styles.gpsBadgeBtnActive]}
+              onPress={() => initializeUserLocation(true)}
+              disabled={isGpsLoading}
+              activeOpacity={0.7}
+            >
+              {isGpsLoading ? (
+                <ActivityIndicator size="small" color={isGpsActive ? "#059669" : "#9333EA"} style={{ width: 14, height: 14 }} />
+              ) : (
+                <Navigation size={12} color={isGpsActive ? "#059669" : "#9333EA"} style={{ marginRight: 4 }} />
+              )}
+              <Text style={[styles.gpsBadgeText, isGpsActive && styles.gpsBadgeTextActive]}>
+                {isGpsActive ? "GPS Active" : "Find GPS"}
+              </Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.nearbyChip, !nearbyFilterActive && styles.nearbyChipActive]}
               onPress={() => {
                 setNearbyFilterActive(false);
-                fetchProducts(false);
+                fetchProducts(false, null, searchLat, searchLng);
               }}
             >
               <Text style={[styles.nearbyChipText, !nearbyFilterActive && styles.nearbyChipTextActive]}>All</Text>
@@ -351,10 +422,19 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   key={r}
                   style={[styles.nearbyChip, isActive && styles.nearbyChipActive]}
-                  onPress={() => {
+                  onPress={async () => {
                     setNearbyFilterActive(true);
                     setSearchRadiusKm(r);
-                    fetchProducts(true, r, searchLat, searchLng);
+                    let activeLat = searchLat;
+                    let activeLng = searchLng;
+                    if (!isGpsActive) {
+                      const loc = await initializeUserLocation(false);
+                      if (loc) {
+                        activeLat = loc.latitude;
+                        activeLng = loc.longitude;
+                      }
+                    }
+                    fetchProducts(true, r, activeLat, activeLng);
                   }}
                 >
                   <Text style={[styles.nearbyChipText, isActive && styles.nearbyChipTextActive]}>
@@ -660,6 +740,7 @@ export default function HomeScreen() {
           setSearchLng(loc.longitude);
           setSearchRadiusKm(loc.radiusKm);
           setSearchLocationName(loc.address);
+          setIsGpsActive(true);
           setNearbyFilterActive(true);
           fetchProducts(true, loc.radiusKm, loc.latitude, loc.longitude);
         }}
@@ -1276,6 +1357,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+  },
+  gpsBadgeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: "#F3E8FF",
+    borderWidth: 1,
+    borderColor: "#E9D5FF",
+  },
+  gpsBadgeBtnActive: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+  },
+  gpsBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#9333EA",
+    marginLeft: 3,
+  },
+  gpsBadgeTextActive: {
+    color: "#059669",
   },
   nearbyChip: {
     paddingHorizontal: 12,

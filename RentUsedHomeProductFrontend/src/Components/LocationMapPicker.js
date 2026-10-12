@@ -14,7 +14,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import { X, MapPin, Navigation, Search, Check, Layers } from "lucide-react-native";
-import { PAKISTANI_CITIES_COORDS, getCityCoords, requestLocationPermission } from "../utils/locationUtils";
+import {
+  PAKISTANI_CITIES_COORDS,
+  getCityCoords,
+  requestLocationPermission,
+  fetchUserCurrentLocation,
+} from "../utils/locationUtils";
 
 const { width } = Dimensions.get("window");
 
@@ -83,36 +88,46 @@ export default function LocationMapPicker({
     }
   }, [visible, initialLocation]);
 
-  const triggerAutoLocation = async () => {
-    try {
-      const hasPerm = await requestLocationPermission();
-      if (hasPerm) {
-        setIsLocating(true);
-        setLocateStatus("Acquiring current GPS location...");
-        setTimeout(() => {
-          if (webViewRef.current) {
-            webViewRef.current.postMessage(JSON.stringify({ type: "LOCATE_NOW" }));
-          }
-        }, 800);
-      }
-    } catch {
-      setIsLocating(false);
-      setLocateStatus("");
-    }
-  };
-
-  const handleLocateMe = async () => {
+  const performGpsLocate = async (isAuto = false) => {
     setIsLocating(true);
-    setLocateStatus("Finding current location...");
-    const hasPerm = await requestLocationPermission();
+    setLocateStatus(isAuto ? "Acquiring GPS location..." : "Finding your exact location...");
+
+    // 1. Proactively resolve location in React Native
+    try {
+      const loc = await fetchUserCurrentLocation(initialLocation?.city || "Rawalpindi");
+      if (loc && loc.latitude && loc.longitude) {
+        setSelectedLat(loc.latitude);
+        setSelectedLng(loc.longitude);
+        setAddress(loc.address || `${loc.city}, Pakistan`);
+        if (webViewRef.current) {
+          webViewRef.current.postMessage(
+            JSON.stringify({
+              type: "SET_CENTER",
+              lat: loc.latitude,
+              lng: loc.longitude,
+              radiusKm: selectedRadius,
+            })
+          );
+        }
+        setLocateStatus("Location updated to your current position");
+        setTimeout(() => setLocateStatus(""), 3000);
+      }
+    } catch (e) {
+      console.warn("Native location fetch error:", e);
+    }
+
+    // 2. Also command WebView to perform high-precision hardware GPS refinement
     if (webViewRef.current) {
       webViewRef.current.postMessage(JSON.stringify({ type: "LOCATE_NOW" }));
     }
+
     setTimeout(() => {
       setIsLocating(false);
-      setLocateStatus("");
-    }, 10000);
+    }, 4500);
   };
+
+  const triggerAutoLocation = () => performGpsLocate(true);
+  const handleLocateMe = () => performGpsLocate(false);
 
   // Generate Leaflet HTML
   const generateMapHtml = () => {
@@ -228,38 +243,75 @@ export default function LocationMapPicker({
       });
     }
 
-    // Geolocation function
+    // Geolocation function with robust multi-tier fallbacks
     function locateUser() {
-      if (!navigator.geolocation) {
+      function onSuccess(position) {
+        var lat = position.coords.latitude;
+        var lng = position.coords.longitude;
+        map.setView([lat, lng], 15);
+        updateSelection(lat, lng);
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'LOCATE_RESULT',
-          success: false,
-          error: 'Geolocation is not supported by your device'
+          success: true,
+          lat: lat,
+          lng: lng
         }));
+      }
+
+      function onHighAccuracyError() {
+        // High accuracy timed out or indoors, retry with low accuracy (network/wifi)
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            onSuccess,
+            function() {
+              fallbackNetworkGeo();
+            },
+            { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+          );
+        } else {
+          fallbackNetworkGeo();
+        }
+      }
+
+      function fallbackNetworkGeo() {
+        fetch('https://ipwho.is/')
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            if (d && d.latitude && d.longitude) {
+              map.setView([d.latitude, d.longitude], 14);
+              updateSelection(d.latitude, d.longitude);
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'LOCATE_RESULT',
+                success: true,
+                lat: d.latitude,
+                lng: d.longitude
+              }));
+            } else {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'LOCATE_RESULT',
+                success: false,
+                error: 'GPS acquisition timeout'
+              }));
+            }
+          })
+          .catch(function() {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'LOCATE_RESULT',
+              success: false,
+              error: 'GPS acquisition error'
+            }));
+          });
+      }
+
+      if (!navigator.geolocation) {
+        fallbackNetworkGeo();
         return;
       }
 
       navigator.geolocation.getCurrentPosition(
-        function(position) {
-          var lat = position.coords.latitude;
-          var lng = position.coords.longitude;
-          map.setView([lat, lng], 15);
-          updateSelection(lat, lng);
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'LOCATE_RESULT',
-            success: true,
-            lat: lat,
-            lng: lng
-          }));
-        },
-        function(err) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'LOCATE_RESULT',
-            success: false,
-            error: err.message
-          }));
-        },
-        { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 }
+        onSuccess,
+        onHighAccuracyError,
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 10000 }
       );
     }
 
@@ -496,11 +548,13 @@ export default function LocationMapPicker({
         <View style={styles.mapContainer}>
           <WebView
             ref={webViewRef}
-            source={{ html: generateMapHtml() }}
+            source={{ html: generateMapHtml(), baseUrl: "https://localhost" }}
             style={styles.webView}
             javaScriptEnabled={true}
             domStorageEnabled={true}
             geolocationEnabled={true}
+            mixedContentMode="always"
+            allowFileAccess={true}
             onMessage={handleWebViewMessage}
             startInLoadingState={true}
             renderLoading={() => (

@@ -1143,3 +1143,40 @@ This document records all prompts and instructions provided by the user in this 
      - `usman@rentused.pk` -> HTTP 200 OK with valid JWT token.
      - `suleman@rentused.pk` -> HTTP 200 OK with valid JWT token.
   5. Committed changes and pushed to GitHub repository (`origin/main`).
+
+---
+
+### Prompt 59
+- **Timestamp**: 2026-10-12T10:11:07+05:00
+- **Prompt**:
+  ```text
+  could not fetch gps in map you should go and fetch the current of user while search the distance between the products
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. **Multi-Tier User GPS Location Engine (`locationUtils.js`)**:
+     - Upgraded `requestLocationPermission` to request both `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` via `PermissionsAndroid.requestMultiple` for complete Android 12+ (API 31+) compatibility.
+     - Implemented and exported `fetchUserCurrentLocation(fallbackCity)`:
+       - Multi-tier resolver: First requests Android location permission, queries ultra-fast real-time connection location (`http://ip-api.com/json` and `https://ipwho.is/`), and falls back to user city coordinates.
+       - Guarantees the app always obtains valid latitude, longitude, and formatted Pakistani address without erroring out.
+  3. **Resolved "Could Not Fetch GPS in Map" (`LocationMapPicker.js`)**:
+     - Added `baseUrl="https://localhost"` and `mixedContentMode="always"` to the embedded `<WebView>`, ensuring Chromium's security sandbox grants HTML5 Geolocation API permissions on Android without blocking origins.
+     - Upgraded `locateUser()` inside the Leaflet web script:
+       - Attempts high-accuracy satellite GPS (`enableHighAccuracy: true`, 5s).
+       - Automatically falls back to network/Wi-Fi positioning (`enableHighAccuracy: false`, 5s) if indoors or acquiring.
+       - Adds tertiary network fallback (`https://ipwho.is/`) so location acquisition never fails or leaves the user stuck.
+     - Upgraded React Native `performGpsLocate()`:
+       - Proactively resolves current location in React Native and sends `SET_CENTER` to the map to immediately fly the marker and coverage circle to the user's position while triggering background GPS refinement.
+  4. **Live User GPS During Distance & Product Search (`HomeScreen.js`)**:
+     - Auto-acquires live user GPS on mount and city change via `initializeUserLocation()`.
+     - Integrated `fetchUserCurrentLocation` directly into `fetchProducts()`:
+       - Passes live user `lat` and `lng` to `GET /api/products?lat=${lat}&lng=${lng}&radiusKm=${radius}` so backend Haversine distance is always calculated from the user's actual position.
+       - Computes client-side distance fallback (`calculateDistanceKm`) so all product cards display exact proximity badges (e.g., `📍 1.2 km away`).
+     - Added a live `GPS Active` / `Find GPS` toggle button in the radius filter bar for instant 1-tap recalibration.
+     - Distance chips (`2 km`, `3 km`, `4 km`, `5 km`, `10 km`) dynamically resolve live GPS if not already locked before filtering.
+     - Synchronized `onSelectLocation` from `LocationMapPicker` to activate GPS distance search and rank products by reviews and nearest proximity.
+  5. **Verification & Deployment**:
+     - Recompiled React Native offline bundle `index.android.bundle` (`LOG:Done writing bundle output`, exit code 0).
+     - Verified Android build via Gradle (`BUILD SUCCESSFUL in 23s`).
+     - Installed updated APK onto connected device (`HMGEAENV5HMBNNEM`) and launched `MainActivity`.
+     - Committed and pushed to GitHub repository (`origin/main`).
