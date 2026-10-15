@@ -418,13 +418,92 @@ namespace RentUsedHomeProduct_Backend.Controllers
         }
 
         // =====================
+        // CANCEL RENTAL (By Renter or Owner)
+        // PUT: api/rentals/cancel/1
+        // =====================
+        [HttpPut("cancel/{id}")]
+        public async Task<IActionResult> CancelRental(int id, [FromBody] System.Text.Json.JsonElement? body = null)
+        {
+            var rental = await _context.Rentals
+                .Include(r => r.Product)
+                .Include(r => r.Renter)
+                .Include(r => r.Owner)
+                .FirstOrDefaultAsync(r => r.RentalId == id);
+
+            if (rental == null)
+                return NotFound(new { message = "Rental not found!" });
+
+            if (rental.Status == "Cancelled")
+                return BadRequest(new { message = "This booking is already cancelled!" });
+
+            if (rental.Status == "Completed")
+                return BadRequest(new { message = "Completed rentals cannot be cancelled!" });
+
+            rental.Status = "Cancelled";
+
+            // Cancel any associated delivery
+            var delivery = await _context.Deliveries.FirstOrDefaultAsync(d => d.RentalId == id);
+            if (delivery != null && delivery.Status != "Delivered")
+            {
+                delivery.Status = "Cancelled";
+            }
+
+            // Sync Product Status: only set to Available if there are no other active rentals on this product today
+            var hasOtherActiveRental = await _context.Rentals
+                .AnyAsync(r => r.ProductId == rental.ProductId &&
+                               r.RentalId != id &&
+                               r.Status == "Active" &&
+                               r.StartDate.Date <= DateTime.Today &&
+                               r.EndDate.Date >= DateTime.Today);
+
+            var product = rental.Product ?? await _context.Products.FindAsync(rental.ProductId);
+            bool becameAvailable = false;
+            if (product != null && !hasOtherActiveRental)
+            {
+                product.Status = "Available";
+                becameAvailable = true;
+            }
+
+            // Send notification to Owner
+            var renterName = rental.Renter?.Username ?? "Renter";
+            var productTitle = product?.Title ?? "Product";
+            _context.Notifications.Add(new Notification
+            {
+                UserId = rental.OwnerId,
+                ProductId = rental.ProductId,
+                Title = "Booking Cancelled",
+                Message = $"{renterName} has cancelled their booking for '{productTitle}'. The dates are now available for others.",
+                Type = "Cancellation",
+                IsRead = false,
+                CreatedAt = DateTime.Now
+            });
+
+            await _context.SaveChangesAsync();
+
+            if (becameAvailable && product != null)
+            {
+                await NotifyWishlistUsersOfAvailability(product.ProductId, product.Title);
+            }
+
+            return Ok(new { 
+                message = "Booking cancelled successfully! Your reservation has been released.", 
+                status = "Cancelled" 
+            });
+        }
+
+        // =====================
         // UPDATE RENTAL STATUS
         // PUT: api/rentals/status/1
         // =====================
         [HttpPut("status/{id}")]
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] System.Text.Json.JsonElement body)
         {
-            var rental = await _context.Rentals.FindAsync(id);
+            var rental = await _context.Rentals
+                .Include(r => r.Product)
+                .Include(r => r.Renter)
+                .Include(r => r.Owner)
+                .FirstOrDefaultAsync(r => r.RentalId == id);
+
             if (rental == null)
                 return NotFound(new { message = "Rental not found!" });
 
@@ -453,17 +532,54 @@ namespace RentUsedHomeProduct_Backend.Controllers
 
             rental.Status = normalizedStatus;
 
+            // If cancelled, also cancel associated delivery
+            if (normalizedStatus == "Cancelled")
+            {
+                var delivery = await _context.Deliveries.FirstOrDefaultAsync(d => d.RentalId == id);
+                if (delivery != null && delivery.Status != "Delivered")
+                {
+                    delivery.Status = "Cancelled";
+                }
+            }
+
             // Sync with Product Status
-            var product = await _context.Products.FindAsync(rental.ProductId);
+            var product = rental.Product ?? await _context.Products.FindAsync(rental.ProductId);
             bool becameAvailable = false;
             if (product != null)
             {
                 if (normalizedStatus == "Active") product.Status = "Rented";
                 else if (normalizedStatus == "Cancelled" || normalizedStatus == "Completed")
                 {
-                    product.Status = "Available";
-                    becameAvailable = true;
+                    var hasOtherActiveRental = await _context.Rentals
+                        .AnyAsync(r => r.ProductId == rental.ProductId &&
+                                       r.RentalId != id &&
+                                       r.Status == "Active" &&
+                                       r.StartDate.Date <= DateTime.Today &&
+                                       r.EndDate.Date >= DateTime.Today);
+
+                    if (!hasOtherActiveRental)
+                    {
+                        product.Status = "Available";
+                        becameAvailable = true;
+                    }
                 }
+            }
+
+            // Notification on cancellation
+            if (normalizedStatus == "Cancelled")
+            {
+                var renterName = rental.Renter?.Username ?? "Renter";
+                var productTitle = product?.Title ?? "Product";
+                _context.Notifications.Add(new Notification
+                {
+                    UserId = rental.OwnerId,
+                    ProductId = rental.ProductId,
+                    Title = "Booking Cancelled",
+                    Message = $"Booking for '{productTitle}' was cancelled. The dates are now available for others.",
+                    Type = "Cancellation",
+                    IsRead = false,
+                    CreatedAt = DateTime.Now
+                });
             }
 
             await _context.SaveChangesAsync();

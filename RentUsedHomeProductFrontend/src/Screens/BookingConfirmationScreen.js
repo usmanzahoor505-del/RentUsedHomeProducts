@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,11 +7,12 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useNavigate, useParams } from "react-router";
-import { CheckCircle, Calendar, User, MapPin } from "lucide-react-native";
+import { CheckCircle, Calendar, User, MapPin, XCircle } from "lucide-react-native";
 import { useDateFilter } from "../context/DateFilterContext";
 import { format } from "date-fns";
 import axios from "axios";
@@ -21,10 +22,12 @@ export default function BookingConfirmationScreen() {
   const navigate = useNavigate();
   const { id } = useParams();
   
-  const [booking, setBooking] = React.useState(null);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [booking, setBooking] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
+    let timer;
     const fetchRental = async () => {
       try {
         const res = await axios.get(`${API_URL}/rental/${id}`);
@@ -37,9 +40,9 @@ export default function BookingConfirmationScreen() {
     };
     if (id) fetchRental();
 
-    const timer = setTimeout(() => {
+    timer = setTimeout(() => {
       navigate("/home");
-    }, 10000); 
+    }, 60000); 
 
     return () => clearTimeout(timer);
   }, [id, navigate]);
@@ -55,6 +58,44 @@ export default function BookingConfirmationScreen() {
   const start = new Date(booking.startDate);
   const end = new Date(booking.endDate);
   const diffDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)) || 1;
+
+  const handleCancelBooking = () => {
+    Alert.alert(
+      "Cancel Booking Request",
+      "Are you sure you want to cancel this booking request? The reserved dates will be immediately freed for other users.",
+      [
+        { text: "Keep Booking", style: "cancel" },
+        {
+          text: "Yes, Cancel Booking",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsCancelling(true);
+              const res = await axios.put(`${API_URL}/rental/cancel/${id}`);
+              Alert.alert(
+                "Booking Cancelled",
+                res.data?.message || "Your booking has been cancelled and the dates released.",
+                [
+                  {
+                    text: "OK",
+                    onPress: () => navigate("/home"),
+                  },
+                ]
+              );
+            } catch (error) {
+              console.error("Failed to cancel booking", error);
+              Alert.alert(
+                "Error",
+                error.response?.data?.message || "Failed to cancel booking. Please try again."
+              );
+            } finally {
+              setIsCancelling(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -144,6 +185,20 @@ export default function BookingConfirmationScreen() {
             onPress={() => navigate("/my-rentals")}
           >
             <Text style={styles.secondaryBtnText}>View My Requests</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.cancelBtn}
+            onPress={handleCancelBooking}
+            disabled={isCancelling}
+          >
+            {isCancelling ? (
+              <ActivityIndicator color="#DC2626" />
+            ) : (
+              <View style={styles.cancelBtnInner}>
+                <XCircle size={18} color="#DC2626" style={{ marginRight: 8 }} />
+                <Text style={styles.cancelBtnText}>Cancel Booking Request</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -341,6 +396,26 @@ const styles = StyleSheet.create({
   secondaryBtnText: {
     color: "#9333EA",
     fontSize: 16,
+    fontWeight: "bold",
+  },
+  cancelBtn: {
+    backgroundColor: "#FEF2F2",
+    height: 54,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#FECACA",
+    marginTop: 4,
+  },
+  cancelBtnInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelBtnText: {
+    color: "#DC2626",
+    fontSize: 15,
     fontWeight: "bold",
   },
 });

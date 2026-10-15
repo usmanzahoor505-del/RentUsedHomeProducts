@@ -8,6 +8,7 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigate } from "react-router";
@@ -21,6 +22,7 @@ import {
   ChevronRight,
   AlertCircle,
   RotateCcw,
+  XCircle,
 } from "lucide-react-native";
 import { myRentals, emptyRentalsMessage } from "../data/products";
 
@@ -86,9 +88,41 @@ export default function MyRentalsScreen() {
         return { bg: "#FEF9C3", text: "#A16207" }; // Yellow
       case "return_approved":
         return { bg: "#F5F3FF", text: "#7C3AED" }; // Purple
+      case "cancelled":
+        return { bg: "#FEF2F2", text: "#DC2626" }; // Red
       default:
         return { bg: "#F3F4F6", text: "#4B5563" }; // Gray
     }
+  };
+
+  const handleCancelBooking = (rentalId, productName) => {
+    Alert.alert(
+      "Cancel Booking Request",
+      `Are you sure you want to cancel your booking request for "${productName}"? The dates will be freed immediately for other users.`,
+      [
+        { text: "Keep Booking", style: "cancel" },
+        {
+          text: "Yes, Cancel",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const res = await axios.put(`${API_URL}/rental/cancel/${rentalId}`);
+              Alert.alert(
+                "Booking Cancelled",
+                res.data?.message || "Booking request cancelled successfully."
+              );
+              fetchRentals();
+            } catch (error) {
+              console.error("Failed to cancel rental", error);
+              Alert.alert(
+                "Error",
+                error.response?.data?.message || "Failed to cancel booking."
+              );
+            }
+          },
+        },
+      ]
+    );
   };
 
   const renderRental = ({ item }) => {
@@ -148,7 +182,29 @@ export default function MyRentalsScreen() {
 
           {/* Action indicator */}
           <View style={styles.actionRow}>
-            {item.status === "active" ? (
+            {item.status === "pending" ? (
+              <View style={styles.pendingActionRow}>
+                <View style={styles.pendingBadgeRow}>
+                  <Clock size={15} color="#EA580C" style={{ marginRight: 6 }} />
+                  <Text style={styles.pendingActionStatusText}>Pending Approval</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.cancelBookingBtn}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleCancelBooking(item.id, item.productName);
+                  }}
+                >
+                  <XCircle size={14} color="#DC2626" style={{ marginRight: 4 }} />
+                  <Text style={styles.cancelBookingBtnText}>Cancel Booking</Text>
+                </TouchableOpacity>
+              </View>
+            ) : item.status === "cancelled" ? (
+              <View style={styles.cancelledAction}>
+                <XCircle size={16} color="#DC2626" style={{ marginRight: 6 }} />
+                <Text style={styles.cancelledText}>Booking Cancelled</Text>
+              </View>
+            ) : item.status === "active" ? (
               <TouchableOpacity 
                 style={styles.activeAction}
                 onPress={(e) => {
@@ -439,6 +495,56 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "bold",
     color: "#CA8A04",
+  },
+  pendingActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FFFBEB",
+    borderColor: "#FEF3C7",
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  pendingBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  pendingActionStatusText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#B45309",
+  },
+  cancelBookingBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF2F2",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  cancelBookingBtnText: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#DC2626",
+  },
+  cancelledAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FECACA",
+    borderWidth: 1,
+    padding: 10,
+    borderRadius: 12,
+  },
+  cancelledText: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#DC2626",
   },
   emptyState: {
     alignItems: "center",

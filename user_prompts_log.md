@@ -1311,5 +1311,36 @@ This document records all prompts and instructions provided by the user in this 
      - Verified `booked-ranges/33` now only contains Rental 18 (ending 15 Oct).
   4. Committed and pushed changes to GitHub repository (`origin/main`).
 
+---
+
+### Prompt 66
+- **Timestamp**: 2026-10-15T16:25:00+05:00
+- **Prompt**:
+  ```text
+  the user can cancel the booking if its change the mind after booking the product now there not cancel booking option in that
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. Implemented Backend Rental Cancellation in `RentalController.cs`:
+     - Added dedicated endpoint `PUT /api/rentals/cancel/{id}` (and dual route `PUT /api/rental/cancel/{id}`):
+       - Sets `rental.Status = "Cancelled"`.
+       - Cancels any associated delivery (`delivery.Status = "Cancelled"`).
+       - Automatically checks if any other active rentals exist today for that product. If none, restores `product.Status = "Available"`.
+       - Creates an in-app `Notification` for the owner: *"{RenterName} has cancelled their booking for '{ProductTitle}'. The dates are now available for others."*
+       - Fires `NotifyWishlistUsersOfAvailability` to notify users waiting on that product.
+     - Updated `PUT /api/rentals/status/{id}` to synchronize cancellation with delivery cancellation, owner notification, and wishlist alerts.
+  3. Added Booking Cancellation Across Frontend Screens:
+     - **`BookingConfirmationScreen.js`**: Added a "Cancel Booking Request" button with confirmation alert (`Alert.alert`) right after booking is placed so users who change their mind can immediately release the reservation. Increased auto-redirect timer to 60 seconds to give users sufficient time to read details and cancel if needed.
+     - **`MyRentalsScreen.js`**: Added an actionable "Cancel Booking" button and badge to pending rental cards with confirmation dialog. When cancelled, calls `PUT ${API_URL}/rental/cancel/${rentalId}` and immediately updates status to CANCELLED in red badge.
+     - **`RentalDetailScreen.js`**: Added pending status banner informing the user they can cancel if plans change, added a full-width "Cancel Booking Request" button in the footer for pending bookings, and added a red "Booking Cancelled" alert banner when viewing cancelled rentals.
+  4. Tested Cancellation End-to-End:
+     - Verified backend endpoint `PUT /api/rental/cancel/{id}` successfully transitions booking to `Status: "Cancelled"`.
+     - Verified notification generation: Owner received `Title: "Booking Cancelled"` with type `"Cancellation"`.
+     - Verified `Product.Status` automatically reset to `"Available"`.
+  5. Built and Bundled:
+     - Recompiled offline React Native bundle (`index.android.bundle`) with Metro (0 errors).
+     - Successfully assembled Android debug APK via Gradle (`./gradlew assembleDebug` - BUILD SUCCESSFUL in 25s).
+  6. Committed and pushed changes to GitHub repository (`origin/main`).
+
 
 

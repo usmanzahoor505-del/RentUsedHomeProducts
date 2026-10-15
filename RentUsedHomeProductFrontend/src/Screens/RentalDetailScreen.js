@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigate, useParams } from "react-router";
-import { ArrowLeft, Calendar, User, Star, Package, AlertCircle, Truck, ChevronRight } from "lucide-react-native";
+import { ArrowLeft, Calendar, User, Star, Package, AlertCircle, Truck, ChevronRight, XCircle } from "lucide-react-native";
 
 import axios from "axios";
 import { API_URL, IMAGE_BASE_URL } from "../utils/api";
@@ -21,6 +21,7 @@ export default function RentalDetailScreen() {
   const { id } = useParams();
   const [rental, setRental] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     fetchRental();
@@ -66,6 +67,39 @@ export default function RentalDetailScreen() {
     }
   };
 
+  const handleCancelBooking = () => {
+    Alert.alert(
+      "Cancel Booking Request",
+      "Are you sure you want to cancel this booking request? The reserved dates will be immediately freed for other users.",
+      [
+        { text: "Keep Booking", style: "cancel" },
+        {
+          text: "Yes, Cancel Booking",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsCancelling(true);
+              const res = await axios.put(`${API_URL}/rental/cancel/${rental.id}`);
+              Alert.alert(
+                "Booking Cancelled",
+                res.data?.message || "Booking request cancelled successfully."
+              );
+              fetchRental();
+            } catch (error) {
+              console.error("Cancel Booking Error:", error);
+              Alert.alert(
+                "Error",
+                error.response?.data?.message || "Failed to cancel booking. Please try again."
+              );
+            } finally {
+              setIsCancelling(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.errorContainer, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -93,12 +127,16 @@ export default function RentalDetailScreen() {
     switch (status) {
       case "active":
         return { bg: "#EFF6FF", text: "#1D4ED8" };
+      case "pending":
+        return { bg: "#FFF7ED", text: "#EA580C" };
       case "completed":
         return { bg: "#DCFCE7", text: "#15803D" };
       case "awaiting_return":
         return { bg: "#FEF9C3", text: "#A16207" };
       case "return_approved":
         return { bg: "#F5F3FF", text: "#7C3AED" };
+      case "cancelled":
+        return { bg: "#FEF2F2", text: "#DC2626" };
       default:
         return { bg: "#F3F4F6", text: "#4B5563" };
     }
@@ -204,6 +242,30 @@ export default function RentalDetailScreen() {
           </View>
         )}
 
+        {rental.status === "pending" && (
+          <View style={[styles.alertBanner, { backgroundColor: "#FFFBEB", borderColor: "#FEF3C7" }]}>
+            <View style={styles.alertHeader}>
+              <AlertCircle size={20} color="#EA580C" style={{ marginRight: 10 }} />
+              <Text style={[styles.alertTitle, { color: "#9A3412" }]}>Pending Owner Approval</Text>
+            </View>
+            <Text style={[styles.alertDesc, { color: "#C2410C" }]}>
+              The owner will review and approve your rental request. If you change your mind, you can cancel this booking at any time.
+            </Text>
+          </View>
+        )}
+
+        {rental.status === "cancelled" && (
+          <View style={[styles.alertBanner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+            <View style={styles.alertHeader}>
+              <XCircle size={20} color="#DC2626" style={{ marginRight: 10 }} />
+              <Text style={[styles.alertTitle, { color: "#991B1B" }]}>Booking Cancelled</Text>
+            </View>
+            <Text style={[styles.alertDesc, { color: "#B91C1C" }]}>
+              This booking request was cancelled. The reserved dates have been released and are now available for others.
+            </Text>
+          </View>
+        )}
+
         {rental.status === "awaiting_return" && (
           <View style={[styles.alertBanner, { backgroundColor: "#FEF9C3", borderColor: "#FDE047" }]}>
             <View style={styles.alertHeader}>
@@ -255,6 +317,26 @@ export default function RentalDetailScreen() {
             onPress={handleReturnClick}
           >
             <Text style={styles.returnBtnText}>Return Item</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
+      )}
+
+      {/* Footer Cancel Button for Pending */}
+      {rental.status === "pending" && (
+        <SafeAreaView style={styles.footer}>
+          <TouchableOpacity 
+            style={styles.cancelFooterBtn}
+            onPress={handleCancelBooking}
+            disabled={isCancelling}
+          >
+            {isCancelling ? (
+              <ActivityIndicator color="#DC2626" />
+            ) : (
+              <View style={styles.cancelFooterBtnInner}>
+                <XCircle size={20} color="#DC2626" style={{ marginRight: 8 }} />
+                <Text style={styles.cancelFooterBtnText}>Cancel Booking Request</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </SafeAreaView>
       )}
@@ -558,5 +640,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#6B21A8",
     marginTop: 2,
+  },
+  cancelFooterBtn: {
+    backgroundColor: "#FEF2F2",
+    height: 56,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#FECACA",
+  },
+  cancelFooterBtnInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelFooterBtnText: {
+    color: "#DC2626",
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });
