@@ -1261,5 +1261,35 @@ This document records all prompts and instructions provided by the user in this 
      - Line 12: Arc distance scaling ($d = R \cdot c$) and clean 1-decimal rounding (`Math.round(x * 10) / 10`).
   3. Committed and pushed to GitHub repository (`origin/main`).
 
+---
+
+### Prompt 64
+- **Timestamp**: 2026-10-15T14:36:39+05:00
+- **Prompt**:
+  ```text
+  if one time one products is rented on that date the product not available for example today is 15 oct i want the product on rent from 16 to 18 i rented but another user not rent that date but this product is schedule after the 16 to 18 means another user can rent 19 oct advance book can do it now its not that logic apply in that project if another user can select the date 16 to 18 its shows rented after that its shows availbale user can advanced book and also the 16 17 18 it total 3 days count if any one want on 15 it count 1 day correct all logic
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. Fixed Date Calculations & Single-Day Rentals:
+     - Corrected validation in `RentalController.cs`: Allowed single-day bookings where `StartDate == EndDate` by updating condition from `dto.StartDate >= dto.EndDate` to `reqStart > reqEnd`.
+     - Fixed day count calculation: Changed from `(dto.EndDate - dto.StartDate).Days` (which gave 2 days for 16-18 Oct) to `(reqEnd - reqStart).Days + 1` (giving exactly 3 days for 16-18 Oct, and 1 day for 15-15 Oct).
+  3. Corrected Overlap Collision Logic:
+     - Fixed overlap check from `r.StartDate < endDate && r.EndDate > startDate` to inclusive date boundary check: `r.StartDate.Date <= reqEnd && r.EndDate.Date >= reqStart`.
+     - When a rental exists for 16-18 Oct, any overlapping request is accurately blocked and returns the exact conflicting dates (`bookedFrom` and `bookedTo`).
+     - Non-overlapping advance bookings (e.g. 19 Oct onwards, or prior to 16 Oct) are fully permitted.
+  4. Added API Endpoints & Date Filters:
+     - Added `[Route("api/rentals")]` dual route to `RentalController`.
+     - Added `GET /api/rentals/booked-ranges/{productId}` returning all upcoming booked date ranges.
+     - Updated `GET /api/products` to accept `startDate` and `endDate` query parameters, dynamically computing `isBookedForDates`, effective `status` ("Available" or "Rented"), and `currentStatus`.
+     - Added `UpcomingBookings` list in `GET /api/products/{id}`.
+  5. Enhanced Frontend Experience (`ProductDetailScreen.js`, `BookingScreen.js`, `HomeScreen.js`):
+     - In `ProductDetailScreen.js`: Removed unconditional blocking on `product.status !== "Available"`. Replaced with dynamic check: if dates are selected and free, show "✓ Available for Advance Booking" and enable "Advance Book Now" even if currently rented out today. Only show "Notify Me When Available" if the product is already booked for the selected dates.
+     - In `BookingScreen.js`: Added real-time availability checking as users change dates or number of days. If dates conflict, button turns red and reads "Dates Unavailable - Change Dates" with warning description; if available, turns purple and allows submission with advance booking confirmation.
+     - In `HomeScreen.js`: Passes selected dates to `fetchProducts`, displaying green "Advance Available" badge for products currently rented but available during user's selected window, and "Booked" badge for unavailable products.
+  6. Verified backend builds cleanly (`dotnet build` with 0 errors) and validated endpoints via curl and REST API calls (conflict detection, 3-day calculation, 1-day rental, advance booking).
+  7. Re-bundled React Native offline bundle and rebuilt Android debug APK successfully.
+  8. Committed and pushed changes to GitHub repository (`origin/main`).
+
 
 

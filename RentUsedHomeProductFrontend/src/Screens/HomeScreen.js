@@ -151,14 +151,21 @@ export default function HomeScreen() {
     useNearby = nearbyFilterActive,
     radius = searchRadiusKm,
     lat = searchLat,
-    lng = searchLng
+    lng = searchLng,
+    sDate = startDate,
+    eDate = getEndDate()
   ) => {
     setIsLoading(true);
     try {
-      let url = `${API_URL}/products`;
+      const params = [];
       if (lat && lng) {
-        url = `${API_URL}/products?lat=${lat}&lng=${lng}` + (useNearby && radius ? `&radiusKm=${radius}` : "");
+        params.push(`lat=${lat}&lng=${lng}`);
+        if (useNearby && radius) params.push(`radiusKm=${radius}`);
       }
+      if (sDate && eDate) {
+        params.push(`startDate=${format(sDate, "yyyy-MM-dd")}&endDate=${format(eDate, "yyyy-MM-dd")}`);
+      }
+      let url = `${API_URL}/products` + (params.length > 0 ? `?${params.join("&")}` : "");
       const res = await axios.get(url);
       const all = res.data || [];
 
@@ -198,10 +205,15 @@ export default function HomeScreen() {
   // Called when user taps "Apply Filters"
   const handleApplyFilters = () => {
     const days = Math.max(1, parseInt(tempDays) || 1);
+    const end = new Date(tempStartDate);
+    end.setDate(end.getDate() + days - 1);
+
     setStartDate(tempStartDate);      // Save to global context
     setNumberOfDays(days);            // End date = startDate + days - 1 (auto via getEndDate)
     setSelectedCategory(tempCategory);
     setShowFilterModal(false);
+
+    fetchProducts(nearbyFilterActive, searchRadiusKm, searchLat, searchLng, tempStartDate, end);
   };
 
   const handleResetFilters = () => {
@@ -210,6 +222,8 @@ export default function HomeScreen() {
     setTempCategory(null);
     clearDates();
     setSelectedCategory(null);
+
+    fetchProducts(nearbyFilterActive, searchRadiusKm, searchLat, searchLng, undefined, undefined);
   };
 
   const getFilteredProducts = () => {
@@ -272,6 +286,9 @@ export default function HomeScreen() {
 
     const isAvailable = item.status === "Available";
     const badgeColor = isAvailable ? "#22C55E" : item.status === "Rented" ? "#F59E0B" : "#EF4444";
+    const badgeLabel = hasDatesSelected 
+      ? (isAvailable ? (item.currentStatus === "Rented" ? "Advance Available" : "Available") : "Booked")
+      : (item.status || "Available");
 
     return (
       <TouchableOpacity
@@ -281,7 +298,7 @@ export default function HomeScreen() {
         <View style={styles.imageContainer}>
           <Image source={{ uri: primaryImage }} style={styles.productImage} />
           <View style={[styles.availableBadge, { backgroundColor: badgeColor }]}>
-            <Text style={styles.availableText}>{item.status || "Available"}</Text>
+            <Text style={styles.availableText}>{badgeLabel}</Text>
           </View>
         </View>
         <View style={styles.productInfo}>

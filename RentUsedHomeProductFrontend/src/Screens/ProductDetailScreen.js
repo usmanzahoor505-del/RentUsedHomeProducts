@@ -48,6 +48,7 @@ export default function ProductDetailScreen() {
   const [product, setProduct] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAvailableForDates, setIsAvailableForDates] = useState(true);
+  const [availabilityMessage, setAvailabilityMessage] = useState("");
   
   const endDate = getEndDate();
 
@@ -117,9 +118,11 @@ export default function ProductDetailScreen() {
       const formattedEnd = format(endDate, 'yyyy-MM-dd');
       const res = await axios.get(`${API_URL}/rental/availability/${id}?startDate=${formattedStart}&endDate=${formattedEnd}`);
       setIsAvailableForDates(res.data.available);
+      setAvailabilityMessage(res.data.message || "");
     } catch (error) {
       console.error("Failed to check availability", error);
       setIsAvailableForDates(false);
+      setAvailabilityMessage("Could not verify date availability.");
     }
   };
 
@@ -152,9 +155,11 @@ export default function ProductDetailScreen() {
       Alert.alert("Your Listing", "You cannot rent your own product.");
       return;
     }
-    if (!hasDatesSelected) {
-      Alert.alert("Date Selection Required", "Please select rental dates on the Home screen first.");
-      navigate("/home");
+    if (hasDatesSelected && !isAvailableForDates) {
+      Alert.alert(
+        "Dates Unavailable",
+        availabilityMessage || "This product is already booked for your selected dates. Please choose different dates or set an alert."
+      );
       return;
     }
     navigate("/booking/" + product.productId);
@@ -185,13 +190,19 @@ export default function ProductDetailScreen() {
         <View style={styles.carouselContainer}>
           <Image source={{ uri: productImages[currentImageIndex] }} style={styles.mainImage} />
           
-          {product.status === "Rented" ? (
+          {hasDatesSelected ? (
+            <View style={[styles.badge, { backgroundColor: isAvailableForDates ? "#22C55E" : "#EF4444" }]}>
+              <Text style={styles.badgeText}>
+                {isAvailableForDates ? (product.status === "Rented" ? "Advance Available" : "Available") : "Already Booked"}
+              </Text>
+            </View>
+          ) : product.status === "Rented" ? (
             <View style={[styles.badge, { backgroundColor: "#F59E0B" }]}>
               <Text style={styles.badgeText}>Currently Rented</Text>
             </View>
-          ) : hasDatesSelected && (
-            <View style={[styles.badge, { backgroundColor: isAvailableForDates ? "#22C55E" : "#EF4444" }]}>
-              <Text style={styles.badgeText}>{isAvailableForDates ? "Available" : "Not Available"}</Text>
+          ) : (
+            <View style={[styles.badge, { backgroundColor: "#22C55E" }]}>
+              <Text style={styles.badgeText}>Available</Text>
             </View>
           )}
 
@@ -207,7 +218,34 @@ export default function ProductDetailScreen() {
 
         {/* Product Details */}
         <View style={styles.detailsBox}>
-          {product.status === "Rented" ? (
+          {hasDatesSelected ? (
+            <View style={[styles.statusBanner, { 
+              backgroundColor: isAvailableForDates ? "#F0FDF4" : "#FEF2F2", 
+              borderColor: isAvailableForDates ? "#DCFCE7" : "#FEE2E2" 
+            }]}>
+              {isAvailableForDates ? <CalendarCheck size={20} color="#166534" /> : <AlertCircle size={20} color="#991B1B" />}
+              <View style={styles.statusInfo}>
+                <Text style={[styles.statusTitle, { color: isAvailableForDates ? "#166534" : "#991B1B" }]}>
+                  {isAvailableForDates 
+                    ? (product.status === "Rented" ? "✓ Available for Advance Booking" : "✓ Available for your dates")
+                    : "✗ Already booked for selected dates"}
+                </Text>
+                <Text style={styles.statusDates}>
+                  {format(startDate, "MMM dd")} - {format(endDate, "MMM dd")} ({numberOfDays} {numberOfDays === 1 ? "day" : "days"})
+                </Text>
+                {isAvailableForDates && product.status === "Rented" && (
+                  <Text style={[styles.statusDates, { color: "#059669", marginTop: 2, fontSize: 12 }]}>
+                    Product is rented right now, but free for your future dates!
+                  </Text>
+                )}
+                {!isAvailableForDates && (
+                  <Text style={[styles.statusDates, { color: "#DC2626", marginTop: 2, fontSize: 12 }]}>
+                    {availabilityMessage || "Already booked for these dates. Choose other dates or add to wishlist for instant alerts."}
+                  </Text>
+                )}
+              </View>
+            </View>
+          ) : product.status === "Rented" ? (
             <View style={[styles.statusBanner, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
               <AlertCircle size={20} color="#D97706" />
               <View style={styles.statusInfo}>
@@ -215,23 +253,11 @@ export default function ProductDetailScreen() {
                   Currently Rented Out
                 </Text>
                 <Text style={styles.statusDates}>
-                  Add to your Wishlist below to receive an instant alert when it becomes available!
+                  In use today. Select future dates to book in advance, or save to wishlist for instant alerts!
                 </Text>
               </View>
             </View>
-          ) : hasDatesSelected && (
-            <View style={[styles.statusBanner, { backgroundColor: isAvailableForDates ? "#F0FDF4" : "#FEF2F2", borderColor: isAvailableForDates ? "#DCFCE7" : "#FEE2E2" }]}>
-              {isAvailableForDates ? <CalendarCheck size={20} color="#166534" /> : <AlertCircle size={20} color="#991B1B" />}
-              <View style={styles.statusInfo}>
-                <Text style={[styles.statusTitle, { color: isAvailableForDates ? "#166534" : "#991B1B" }]}>
-                  {isAvailableForDates ? "✓ Available for your dates" : "✗ Not available for your dates"}
-                </Text>
-                <Text style={styles.statusDates}>
-                  {format(startDate, "MMM dd")} - {format(endDate, "MMM dd")}
-                </Text>
-              </View>
-            </View>
-          )}
+          ) : null}
 
           <Text style={styles.title}>{product.title}</Text>
           
@@ -401,7 +427,7 @@ export default function ProductDetailScreen() {
           <View style={[styles.bookBtn, { backgroundColor: "#6B7280" }]}>
             <Text style={styles.bookBtnText}>Your Listed Product</Text>
           </View>
-        ) : (!isAvailableForDates && hasDatesSelected) || product.status !== "Available" ? (
+        ) : hasDatesSelected && !isAvailableForDates ? (
           <TouchableOpacity 
             style={[styles.bookBtn, styles.notifyBtn]}
             onPress={handleToggleWishlist}
@@ -417,7 +443,11 @@ export default function ProductDetailScreen() {
             onPress={handleBooking}
           >
             <Text style={styles.bookBtnText}>
-              {!isLoggedIn ? "Sign In to Book" : !hasDatesSelected ? "Select Dates to Book" : "Book Now"}
+              {!isLoggedIn 
+                ? "Sign In to Book" 
+                : hasDatesSelected 
+                  ? (product.status === "Rented" ? "Advance Book Now" : "Book Now") 
+                  : "Book / Select Dates"}
             </Text>
           </TouchableOpacity>
         )}

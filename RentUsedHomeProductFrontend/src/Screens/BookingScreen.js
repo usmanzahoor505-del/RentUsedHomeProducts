@@ -7,6 +7,7 @@ import {
   StyleSheet,
   TextInput,
   Dimensions,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -40,6 +41,9 @@ export default function BookingScreen() {
   const [product, setProduct] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAvailable, setIsAvailable] = useState(true);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const [availabilityMessage, setAvailabilityMessage] = useState("");
 
   // Delivery Option State
   const [deliveryOption, setDeliveryOption] = useState("CourierDelivery"); // "CourierDelivery" or "SelfPickup"
@@ -58,6 +62,31 @@ export default function BookingScreen() {
     };
     if (id) fetchProduct();
   }, [id]);
+
+  const checkDateAvailability = async (sDate, nDays) => {
+    if (!id || !sDate) return;
+    try {
+      setIsCheckingAvailability(true);
+      const eDate = new Date(sDate);
+      eDate.setDate(eDate.getDate() + nDays - 1);
+
+      const formattedStart = format(sDate, 'yyyy-MM-dd');
+      const formattedEnd = format(eDate, 'yyyy-MM-dd');
+      const res = await axios.get(`${API_URL}/rental/availability/${id}?startDate=${formattedStart}&endDate=${formattedEnd}`);
+      setIsAvailable(res.data.available);
+      setAvailabilityMessage(res.data.message || (res.data.available ? "Product is available for selected dates!" : "Product is already booked for these dates!"));
+    } catch (error) {
+      console.error("Availability check failed:", error);
+    } finally {
+      setIsCheckingAvailability(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (id && startDate && numberOfDays > 0) {
+      checkDateAvailability(startDate, numberOfDays);
+    }
+  }, [id, startDate, numberOfDays]);
 
   const productPrice = product?.pricePerDay || 0;
 
@@ -81,12 +110,14 @@ export default function BookingScreen() {
   const totals = calculateTotal();
 
   const handleDateUpdate = (newStartDate, newNumberOfDays) => {
+    const sDate = newStartDate !== undefined ? newStartDate : startDate;
+    const days = newNumberOfDays !== undefined ? Math.max(1, parseInt(newNumberOfDays) || 1) : numberOfDays;
+
     if (newStartDate !== undefined) {
       setStartDate(newStartDate);
       setContextStartDate(newStartDate);
     }
     if (newNumberOfDays !== undefined) {
-      const days = Math.max(1, parseInt(newNumberOfDays) || 1);
       setNumberOfDays(days);
       setContextNumberOfDays(days);
     }
@@ -104,12 +135,16 @@ export default function BookingScreen() {
       console.log("Missing product or userId:", { product: !!product, userId: !!userId });
       return;
     }
+    if (!isAvailable) {
+      Alert.alert("Dates Unavailable", availabilityMessage || "The product is already booked for the selected dates. Please pick another date.");
+      return;
+    }
     try {
       setIsSubmitting(true);
       const isDelivery = deliveryOption === "CourierDelivery";
       const payload = {
         ProductId: product.productId,
-        OwnerId: product.owner.userId,
+        OwnerId: product.owner?.userId || product.userId || product.ownerId,
         RenterId: userId,
         StartDate: format(startDate, 'yyyy-MM-dd'),
         EndDate: format(getCalculatedEndDate(), 'yyyy-MM-dd'),
@@ -123,7 +158,7 @@ export default function BookingScreen() {
       navigate("/booking-confirmation/" + res.data.rentalId);
     } catch (error) {
       console.error(error);
-      alert(error.response?.data?.message || "Booking failed");
+      Alert.alert("Booking Failed", error.response?.data?.message || "Booking failed");
     } finally {
       setIsSubmitting(false);
     }
@@ -212,12 +247,27 @@ export default function BookingScreen() {
         </View>
 
         {/* Status Alert */}
-        <View style={styles.statusBox}>
-          <View style={styles.greenCheck} />
-          <View>
-            <Text style={styles.statusTitle}>Available for Selected Dates</Text>
-            <Text style={styles.statusDesc}>
-              This item is ready for pickup during your period.
+        <View style={[
+          styles.statusBox, 
+          !isAvailable && { backgroundColor: "#FEF2F2", borderColor: "#FCA5A5" }
+        ]}>
+          <View style={[styles.greenCheck, !isAvailable && { backgroundColor: "#EF4444" }]} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.statusTitle, !isAvailable && { color: "#991B1B" }]}>
+              {isCheckingAvailability 
+                ? "Checking date availability..." 
+                : isAvailable 
+                  ? "Available for Selected Dates" 
+                  : "Unavailable for Selected Dates"}
+            </Text>
+            <Text style={[styles.statusDesc, !isAvailable && { color: "#DC2626" }]}>
+              {isCheckingAvailability
+                ? "Verifying rental schedules..."
+                : isAvailable
+                  ? (numberOfDays === 1 
+                      ? `1 Day Rental on ${format(startDate, "MMM dd, yyyy")}. Advance booking supported!`
+                      : `${numberOfDays} Days Rental (${format(startDate, "MMM dd")} - ${format(getCalculatedEndDate(), "MMM dd")}). Advance booking supported!`)
+                  : (availabilityMessage || "This item is already rented or reserved during these dates. Please choose different dates.")}
             </Text>
           </View>
         </View>
@@ -329,12 +379,23 @@ export default function BookingScreen() {
       {/* Footer Action */}
       <View style={styles.footer}>
         <TouchableOpacity 
-          style={[styles.confirmBtn, isSubmitting && { opacity: 0.7 }]}
+          style={[
+            styles.confirmBtn, 
+            (isSubmitting || !isAvailable || isCheckingAvailability) && { opacity: 0.6, backgroundColor: isAvailable ? "#9333EA" : "#EF4444" }
+          ]}
           onPress={handleBookingSubmit}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !isAvailable || isCheckingAvailability}
         >
           <CreditCard size={20} color="#FFFFFF" style={{ marginRight: 10 }} />
-          <Text style={styles.confirmBtnText}>{isSubmitting ? "Processing..." : "Send Booking Request"}</Text>
+          <Text style={styles.confirmBtnText}>
+            {isSubmitting 
+              ? "Processing..." 
+              : isCheckingAvailability 
+                ? "Checking Dates..." 
+                : !isAvailable 
+                  ? "Dates Unavailable - Change Dates" 
+                  : "Send Booking Request"}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

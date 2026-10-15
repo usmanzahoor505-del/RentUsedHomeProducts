@@ -3,7 +3,7 @@ import axios from 'axios';
 // USB ADB Reverse (localhost) is primary for zero-firewall instant connection
 // Fallback to Wi-Fi IP if USB is disconnected
 const LOCALHOST_HOST = 'localhost:5257';
-const WIFI_HOST = '10.228.171.42:5257';
+const WIFI_HOST = '192.168.32.143:5257';
 
 export const API_URL = `http://${LOCALHOST_HOST}/api`;
 export const IMAGE_BASE_URL = `http://${LOCALHOST_HOST}`;

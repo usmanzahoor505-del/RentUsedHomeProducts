@@ -21,10 +21,15 @@ namespace RentUsedHomeProduct_Backend.Controllers
 
         // =====================
         // GET ALL PRODUCTS (With optional Nearby Location & Radius filter, sorted by Reviews Descending)
-        // GET: api/products?lat=33.5973&lng=73.0479&radiusKm=5
+        // GET: api/products?lat=33.5973&lng=73.0479&radiusKm=5&startDate=2026-10-16&endDate=2026-10-18
         // =====================
         [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] double? lat = null, [FromQuery] double? lng = null, [FromQuery] double? radiusKm = null)
+        public async Task<IActionResult> GetAll(
+            [FromQuery] double? lat = null, 
+            [FromQuery] double? lng = null, 
+            [FromQuery] double? radiusKm = null,
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null)
         {
             // Pre-calculate review counts per product from Rentals table
             var reviewCounts = await _context.Rentals
@@ -32,6 +37,22 @@ namespace RentUsedHomeProduct_Backend.Controllers
                 .GroupBy(r => r.ProductId)
                 .Select(g => new { ProductId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(g => g.ProductId, g => g.Count);
+
+            // If date range is supplied, query which products are already booked during that window
+            var bookedProductIds = new HashSet<int>();
+            if (startDate.HasValue && endDate.HasValue)
+            {
+                var qStart = startDate.Value.Date;
+                var qEnd = endDate.Value.Date;
+                bookedProductIds = (await _context.Rentals
+                    .Where(r => r.Status != "Cancelled" &&
+                                r.Status != "Completed" &&
+                                r.StartDate.Date <= qEnd &&
+                                r.EndDate.Date >= qStart)
+                    .Select(r => r.ProductId)
+                    .Distinct()
+                    .ToListAsync()).ToHashSet();
+            }
 
             var productsQuery = await _context.Products
                 .Where(p => p.Status == "Available" || p.Status == "Rented")
@@ -93,6 +114,10 @@ namespace RentUsedHomeProduct_Backend.Controllers
                         dist = CalculateHaversineDistance(userLat, userLng, p.Latitude.Value, p.Longitude.Value);
                     }
                     var revCount = reviewCounts.ContainsKey(p.ProductId) ? reviewCounts[p.ProductId] : 0;
+                    var isBooked = bookedProductIds.Contains(p.ProductId);
+                    var effectiveStatus = (startDate.HasValue && endDate.HasValue)
+                        ? (isBooked ? "Rented" : "Available")
+                        : p.Status;
 
                     return new
                     {
@@ -101,7 +126,9 @@ namespace RentUsedHomeProduct_Backend.Controllers
                         p.Description,
                         p.Condition,
                         p.PricePerDay,
-                        p.Status,
+                        Status = effectiveStatus,
+                        CurrentStatus = p.Status,
+                        IsBookedForDates = isBooked,
                         p.Location,
                         p.Latitude,
                         p.Longitude,
@@ -132,25 +159,35 @@ namespace RentUsedHomeProduct_Backend.Controllers
             }
 
             // When no lat/lng provided: Sort by Maximum Reviews Descending
-            var sortedAll = productsQuery.Select(p => new
+            var sortedAll = productsQuery.Select(p =>
             {
-                p.ProductId,
-                p.Title,
-                p.Description,
-                p.Condition,
-                p.PricePerDay,
-                p.Status,
-                p.Location,
-                p.Latitude,
-                p.Longitude,
-                p.RadiusKm,
-                p.AvgRating,
-                ReviewCount = reviewCounts.ContainsKey(p.ProductId) ? reviewCounts[p.ProductId] : 0,
-                p.Owner,
-                p.Category,
-                p.Attributes,
-                p.Images,
-                DistanceKm = (double?)null
+                var isBooked = bookedProductIds.Contains(p.ProductId);
+                var effectiveStatus = (startDate.HasValue && endDate.HasValue)
+                    ? (isBooked ? "Rented" : "Available")
+                    : p.Status;
+
+                return new
+                {
+                    p.ProductId,
+                    p.Title,
+                    p.Description,
+                    p.Condition,
+                    p.PricePerDay,
+                    Status = effectiveStatus,
+                    CurrentStatus = p.Status,
+                    IsBookedForDates = isBooked,
+                    p.Location,
+                    p.Latitude,
+                    p.Longitude,
+                    p.RadiusKm,
+                    p.AvgRating,
+                    ReviewCount = reviewCounts.ContainsKey(p.ProductId) ? reviewCounts[p.ProductId] : 0,
+                    p.Owner,
+                    p.Category,
+                    p.Attributes,
+                    p.Images,
+                    DistanceKm = (double?)null
+                };
             })
             .OrderByDescending(p => p.ReviewCount)
             .ToList();
@@ -231,6 +268,21 @@ namespace RentUsedHomeProduct_Backend.Controllers
                 })
                 .ToListAsync();
 
+            var upcomingBookings = await _context.Rentals
+                .Where(r => r.ProductId == id &&
+                            r.Status != "Cancelled" &&
+                            r.Status != "Completed" &&
+                            r.EndDate.Date >= DateTime.Today)
+                .OrderBy(r => r.StartDate)
+                .Select(r => new
+                {
+                    r.RentalId,
+                    StartDate = r.StartDate.ToString("yyyy-MM-dd"),
+                    EndDate = r.EndDate.ToString("yyyy-MM-dd"),
+                    r.Status
+                })
+                .ToListAsync();
+
             return Ok(new
             {
                 product.ProductId,
@@ -246,6 +298,7 @@ namespace RentUsedHomeProduct_Backend.Controllers
                 product.AvgRating,
                 ReviewCount = reviewCount,
                 Reviews = reviews,
+                UpcomingBookings = upcomingBookings,
                 product.Owner,
                 product.Category,
                 product.Attributes,

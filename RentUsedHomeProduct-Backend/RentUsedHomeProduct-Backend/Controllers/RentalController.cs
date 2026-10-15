@@ -8,6 +8,7 @@ using RentUsedHomeProduct_Backend.Models;
 namespace RentUsedHomeProduct_Backend.Controllers
 {
     [Route("api/[controller]")]
+    [Route("api/rentals")]
     [ApiController]
     public class RentalController : ControllerBase
     {
@@ -229,18 +230,62 @@ namespace RentUsedHomeProduct_Backend.Controllers
             if (!productExists)
                 return NotFound(new { message = "Product not found!" });
 
-            // Check karo koi existing rental in dates pe overlap toh nahi karti
-            var isBooked = await _context.Rentals
-                .AnyAsync(r => r.ProductId == productId &&
-                               r.Status != "Cancelled" &&
-                               r.Status != "Completed" &&
-                               r.StartDate < endDate &&
-                               r.EndDate > startDate);
+            var reqStart = startDate.Date;
+            var reqEnd = endDate.Date;
 
-            if (isBooked)
-                return Ok(new { available = false, message = "Product is not available for selected dates!" });
+            if (reqStart > reqEnd)
+                return BadRequest(new { message = "End date cannot be earlier than start date!" });
 
-            return Ok(new { available = true, message = "Product is available for selected dates!" });
+            // Check if any existing active rental overlaps with requested inclusive dates [reqStart, reqEnd]
+            // An existing rental [r.StartDate, r.EndDate] overlaps if: r.StartDate <= reqEnd AND r.EndDate >= reqStart
+            var overlappingRental = await _context.Rentals
+                .Where(r => r.ProductId == productId &&
+                            r.Status != "Cancelled" &&
+                            r.Status != "Completed" &&
+                            r.StartDate.Date <= reqEnd &&
+                            r.EndDate.Date >= reqStart)
+                .OrderBy(r => r.StartDate)
+                .FirstOrDefaultAsync();
+
+            if (overlappingRental != null)
+            {
+                return Ok(new { 
+                    available = false, 
+                    message = $"Product is already booked from {overlappingRental.StartDate:MMM dd} to {overlappingRental.EndDate:MMM dd}!",
+                    bookedFrom = overlappingRental.StartDate.ToString("yyyy-MM-dd"),
+                    bookedTo = overlappingRental.EndDate.ToString("yyyy-MM-dd")
+                });
+            }
+
+            return Ok(new { 
+                available = true, 
+                message = "Product is available for selected dates (Advance Booking allowed)!" 
+            });
+        }
+
+        // =====================
+        // GET UPCOMING BOOKED RANGES FOR A PRODUCT
+        // GET: api/rentals/booked-ranges/1
+        // =====================
+        [HttpGet("booked-ranges/{productId}")]
+        public async Task<IActionResult> GetBookedRanges(int productId)
+        {
+            var ranges = await _context.Rentals
+                .Where(r => r.ProductId == productId &&
+                            r.Status != "Cancelled" &&
+                            r.Status != "Completed" &&
+                            r.EndDate.Date >= DateTime.Today)
+                .OrderBy(r => r.StartDate)
+                .Select(r => new
+                {
+                    r.RentalId,
+                    StartDate = r.StartDate.ToString("yyyy-MM-dd"),
+                    EndDate = r.EndDate.ToString("yyyy-MM-dd"),
+                    r.Status
+                })
+                .ToListAsync();
+
+            return Ok(ranges);
         }
 
         // =====================
@@ -250,16 +295,19 @@ namespace RentUsedHomeProduct_Backend.Controllers
         [HttpPost]
         public async Task<IActionResult> Create(RentalDto dto)
         {
-            // Validate dates
-            if (dto.StartDate >= dto.EndDate)
-                return BadRequest(new { message = "End date must be after start date!" });
+            var reqStart = dto.StartDate.Date;
+            var reqEnd = dto.EndDate.Date;
 
-            if (dto.StartDate < DateTime.Today)
+            // Validate dates: StartDate can equal EndDate (1-day rental)
+            if (reqStart > reqEnd)
+                return BadRequest(new { message = "End date cannot be earlier than start date!" });
+
+            if (reqStart < DateTime.Today)
                 return BadRequest(new { message = "Start date cannot be in the past!" });
 
             // Product exist karta hai?
-            var productExists = await _context.Products.AnyAsync(p => p.ProductId == dto.ProductId);
-            if (!productExists)
+            var product = await _context.Products.FindAsync(dto.ProductId);
+            if (product == null)
                 return NotFound(new { message = "Product not found!" });
 
             // Owner aur Renter exist karte hain?
@@ -275,23 +323,23 @@ namespace RentUsedHomeProduct_Backend.Controllers
             if (dto.OwnerId == dto.RenterId)
                 return BadRequest(new { message = "Owner and renter cannot be the same person!" });
 
-            // Date availability check
-            var isBooked = await _context.Rentals
-                .AnyAsync(r => r.ProductId == dto.ProductId &&
-                               r.Status != "Cancelled" &&
-                               r.Status != "Completed" &&
-                               r.StartDate < dto.EndDate &&
-                               r.EndDate > dto.StartDate);
+            // Date availability check: Overlaps if r.StartDate <= reqEnd AND r.EndDate >= reqStart
+            var overlappingRental = await _context.Rentals
+                .Where(r => r.ProductId == dto.ProductId &&
+                            r.Status != "Cancelled" &&
+                            r.Status != "Completed" &&
+                            r.StartDate.Date <= reqEnd &&
+                            r.EndDate.Date >= reqStart)
+                .FirstOrDefaultAsync();
 
-            if (isBooked)
-                return BadRequest(new { message = "Product is not available for selected dates!" });
+            if (overlappingRental != null)
+                return BadRequest(new { 
+                    message = $"Product is not available for selected dates! Already booked from {overlappingRental.StartDate:MMM dd} to {overlappingRental.EndDate:MMM dd}." 
+                });
 
-            // Step 1: Get product price per day
-            var product = await _context.Products.FindAsync(dto.ProductId);
-            
-            // Step 2: Calculate days
-            var totalDays = (dto.EndDate - dto.StartDate).Days;
-            if (totalDays <= 0) totalDays = 1; // Minimum 1 day charge
+            // Calculate inclusive days: (e.g. 16 to 18 = (18 - 16) + 1 = 3 days; 15 to 15 = (15 - 15) + 1 = 1 day)
+            var totalDays = (reqEnd - reqStart).Days + 1;
+            if (totalDays <= 0) totalDays = 1;
 
             var isDelivery = dto.DeliveryOption == "CourierDelivery";
             var deliveryFee = isDelivery ? (dto.DeliveryFee ?? 250m) : 0m;
@@ -301,8 +349,8 @@ namespace RentUsedHomeProduct_Backend.Controllers
                 ProductId = dto.ProductId,
                 OwnerId = dto.OwnerId,
                 RenterId = dto.RenterId,
-                StartDate = dto.StartDate,
-                EndDate = dto.EndDate,
+                StartDate = reqStart,
+                EndDate = reqEnd,
                 DeliveryOption = isDelivery ? "CourierDelivery" : "SelfPickup",
                 DeliveryFee = deliveryFee,
                 TotalAmount = (product.PricePerDay * totalDays) + deliveryFee,
@@ -565,7 +613,7 @@ namespace RentUsedHomeProduct_Backend.Controllers
                 if (!waitingUsers.Any())
                     return;
 
-                var title = "Item Back in Stock!";
+                var title = "Item Back For Rent!";
                 var message = $"Good news! '{productTitle ?? "An item on your wishlist"}' is now available for rent. Tap to view and book it now!";
 
                 foreach (var userId in waitingUsers)
