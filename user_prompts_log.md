@@ -1291,5 +1291,25 @@ This document records all prompts and instructions provided by the user in this 
   7. Re-bundled React Native offline bundle and rebuilt Android debug APK successfully.
   8. Committed and pushed changes to GitHub repository (`origin/main`).
 
+---
+
+### Prompt 65
+- **Timestamp**: 2026-10-15T15:32:18+05:00
+- **Prompt**:
+  ```text
+  the product select the dates just not book now i filter that same date its show already booked the selected dates
+  ```
+- **Action Taken**:
+  1. Saved prompt in log (both in artifact directory and workspace root).
+  2. Identified Root Cause of "Already Booked" Display on Selected Dates:
+     - Clarified that selecting dates on the screen or in filters does NOT create a booking in the database.
+     - During our previous automated test verification of Prompt 64, our verification script executed a POST test on Product 33 ("Wardrobe") for dates 16–18 Oct (`RentalId: 1018`) and 19 Oct (`RentalId: 1019`) to verify the backend's day calculation.
+     - Because these test booking records persisted in SQL Server database, when the user subsequently tested the date filter for 16–18 Oct on Product 33, the backend accurately reported that those dates were occupied by Rental 1018.
+  3. Cleaned Up Database Test Records:
+     - Deleted test rentals `1018` and `1019` via `DELETE /api/rentals/{id}`.
+     - Verified that Product 33 now shows `available: true` ("Available for selected dates (Advance Booking allowed)") for 16–18 Oct onwards.
+     - Verified `booked-ranges/33` now only contains Rental 18 (ending 15 Oct).
+  4. Committed and pushed changes to GitHub repository (`origin/main`).
+
 
 
